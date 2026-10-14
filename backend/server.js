@@ -5,14 +5,27 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const helmet = require('helmet');
+const { rateLimit } = require('express-rate-limit');
 
 const app = express();
+app.set('trust proxy', 1);
+app.use(helmet());
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many attempts. Please try again later.' }
+});
 
 const allowedOrigins = [
   'http://127.0.0.1:5500',
   'http://localhost:5500',
   'http://localhost:5000',
   'http://localhost:3000',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
   'http://localhost:5808',
   'https://localhost:5808',
   ...(process.env.FRONTEND_URL || '')
@@ -34,15 +47,18 @@ app.use(cors({
   exposedHeaders: ['Authorization']
 }));
 
-app.use(express.json());
+app.use(express.json({ limit: '32kb' }));
 
 const connectDB = async () => {
   try {
+    if (process.env.NODE_ENV === 'production' && (!process.env.JWT_SECRET || Buffer.byteLength(process.env.JWT_SECRET) < 32)) {
+      throw new Error('Set JWT_SECRET to a random value of at least 32 characters in the production environment.');
+    }
     const mongoUri = process.env.MONGODB_URI;
     const isLocalMongoUri = /^mongodb:\/\/(?:[^@/]+@)?(?:localhost|127\.0\.0\.1|\[?::1\]?)(?::|\/|$)/i.test(mongoUri || '');
 
     if (process.env.NODE_ENV === 'production' && (!mongoUri || isLocalMongoUri)) {
-      throw new Error('Set MONGODB_URI to a reachable MongoDB Atlas connection string in the Render environment.');
+      throw new Error('Set MONGODB_URI to a reachable MongoDB Community Server connection string in the Render environment. A server on your computer localhost is not reachable from Render.');
     }
 
     await mongoose.connect(mongoUri || 'mongodb://127.0.0.1:27017/hungry_nook', {
@@ -51,7 +67,6 @@ const connectDB = async () => {
     console.log('MongoDB connected successfully!');
   } catch (err) {
     console.error('MongoDB connection failed. Check that MONGODB_URI is set to a reachable database.');
-    console.error(err.message);
     process.exit(1);
   }
 };
@@ -135,6 +150,56 @@ const Reservation = mongoose.model('Reservation', ReservationSchema);
 const GiftCard = mongoose.model('GiftCard', GiftCardSchema);
 const Cart = mongoose.model('Cart', CartSchema);
 
+const wingFlavors = new Set([
+  'Salted Egg', 'Garlic Parmesan', '4 Spice', 'Picante Parmigiano', 'Tex Mex', 'Buffalo',
+  'Banabana', 'BBQ', 'Spicy Korean', 'Chili Honey', 'Honey Mustard', 'Picaso Mostaza',
+  'Dulce Picante', 'Soubise', 'Moutarde', 'Soy Garlic', 'Crimson Glaze', 'Spicy Queso',
+  'Mango Pepper', 'Teriyaki'
+]);
+const menuCatalog = {
+  '401': { name: 'Ala Carte Chicken Wings', basePrice: 299, flavors: 2 },
+  '402': { name: 'Unlimited Wings & Rice', basePrice: 409, flavors: 1 },
+  '904': { name: 'Fries', variants: { 'Plain Fries': 70, 'Spiced Fries': 80 } },
+  '905': { name: 'Aioli Dip', basePrice: 30 },
+  '906': { name: 'Sriracha Mayo Dip', basePrice: 30 },
+  '907': { name: 'Cheese Sauce Dip', basePrice: 30 },
+  '908': { name: 'Nestlé House Blend Iced Tea', variants: { Single: 50, Unlimited: 70 } },
+  '909': { name: 'Nestlé Cucumber Lemonade', variants: { Single: 50, Unlimited: 70 } },
+  '910': { name: 'Nestlé Juice Pitcher', basePrice: 200 },
+  '911': { name: 'Soda in Can', basePrice: 60 },
+  '912': { name: 'Pineapple Juice', basePrice: 70 },
+  '913': { name: 'Soda 1.5 Liters', basePrice: 150 },
+  '914': { name: 'Bottled Water', basePrice: 35 },
+  '915': { name: 'Bottomless Juice Upgrade', variants: { 'House Blend Iced Tea': 40, 'Cucumber Lemonade': 40 } }
+};
+
+const normalizeCartItem = (input) => {
+  const itemId = String(input?.itemId ?? '');
+  const product = menuCatalog[itemId];
+  const quantity = Number(input?.quantity);
+  if (!product || !Number.isInteger(quantity) || quantity < 1 || quantity > 50) {
+    throw new Error('Invalid menu item or quantity');
+  }
+  const size = product.variants ? String(input?.size ?? '') : '';
+  const price = product.variants ? product.variants[size] : product.basePrice;
+  if (price === undefined) throw new Error('Invalid menu option');
+  let flavor = '';
+  let extraFlavorCost = 0;
+  if (product.flavors) {
+    const selectedFlavors = String(input?.flavor ?? '').split(',').map(value => value.trim()).filter(Boolean);
+    if (selectedFlavors.length < 1 || selectedFlavors.length > product.flavors || selectedFlavors.some(value => !wingFlavors.has(value)) || new Set(selectedFlavors).size !== selectedFlavors.length) {
+      throw new Error('Choose valid chicken wing flavors');
+    }
+    flavor = selectedFlavors.join(', ');
+    if (itemId === '401' && selectedFlavors.length === 2) extraFlavorCost = 10;
+  }
+  return {
+    itemId, name: product.name + (size ? ` (${size})` : ''), price: price + extraFlavorCost,
+    quantity, size, flavor,
+    notes: typeof input?.notes === 'string' ? input.notes.slice(0, 200) : ''
+  };
+};
+
 
 const authenticate = async (req, res, next) => {
   try {
@@ -147,7 +212,7 @@ const authenticate = async (req, res, next) => {
       req.user = {
         _id: 'admin',
         name: 'Admin',
-        email: 'hungryNook@gmail.com',
+        email: process.env.ADMIN_EMAIL,
         isAdmin: true
       };
       return next();
@@ -186,24 +251,25 @@ app.get('/api/validate', authenticate, async (req, res) => {
   }
 });
 
-app.post('/api/register', async (req, res) => {
+app.post('/api/register', authLimiter, async (req, res) => {
   try {
     const { name, email, password } = req.body;
-    if (!name || !email || !password) throw new Error('All fields are required');
+    if (typeof name !== 'string' || !name.trim() || typeof email !== 'string' || !email.trim() || typeof password !== 'string') throw new Error('All fields are required');
+    if (password.length < 8 || Buffer.byteLength(password, 'utf8') > 72) throw new Error('Password must be 8 to 72 bytes');
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const user = new User({ name, email, password: hashedPassword });
+    const user = new User({ name: name.trim(), email: email.trim().toLowerCase(), password: hashedPassword });
 
     await user.save();
     const token = jwt.sign(
-      { _id: 'admin', isAdmin: true },   
+      { _id: user._id.toString(), isAdmin: false },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
 
     res.status(201).json({
       success: true,
-      user: { _id: user._id, name: user.name, email: user.email },
+      user: { _id: user._id, name: user.name, email: user.email, isAdmin: false },
       token
     });
   } catch (err) {
@@ -212,21 +278,18 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
-app.post('/api/login', async (req, res) => {
+app.post('/api/login', authLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
-    console.log('[LOGIN ATTEMPT] Email:', email);
 
-    if (!email || !password) {
+    if (typeof email !== 'string' || typeof password !== 'string' || !email || !password) {
       return res.status(400).json({ success: false, message: 'Email and password required' });
     }
 
-    if (email.toLowerCase() === 'hungrynook@gmail.com') {
-      console.log('[ADMIN LOGIN] Attempting admin login');
-      
-      if (password === '123456') {
-        console.log('[ADMIN LOGIN] Password correct');
-        
+    const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+    const adminPassword = process.env.ADMIN_PASSWORD;
+    if (adminEmail && adminPassword && email.trim().toLowerCase() === adminEmail) {
+      if (password === adminPassword) {
         const token = jwt.sign(
           { _id: 'admin', isAdmin: true },
           process.env.JWT_SECRET,
@@ -236,14 +299,14 @@ app.post('/api/login', async (req, res) => {
         return res.json({
           success: true,
           token: token,
-          user: { _id: 'admin', name: 'Admin', email: email, isAdmin: true }
+          user: { _id: 'admin', name: 'Admin', email: adminEmail, isAdmin: true }
         });
       } else {
         return res.status(400).json({ success: false, message: 'Invalid credentials' });
       }
     }
 
-    const user = await User.findOne({ email: email.toLowerCase() });
+    const user = await User.findOne({ email: email.trim().toLowerCase() });
     if (!user) return res.status(400).json({ success: false, message: 'Invalid credentials' });
 
     const isMatch = await bcrypt.compare(password, user.password);
@@ -262,7 +325,7 @@ app.post('/api/login', async (req, res) => {
     });
     
   } catch (err) {
-    console.error('[LOGIN ERROR]', err);
+    console.error('[LOGIN ERROR]');
     return res.status(500).json({ success: false, message: 'Login failed. Please try again.' });
   }
 });
@@ -270,24 +333,25 @@ app.post('/api/login', async (req, res) => {
 
 app.post('/api/orders', authenticate, async (req, res) => {
   try {
-    const { items, total, paymentMethod, paymentDetails } = req.body;
-    console.log('Order Creation - User:', req.user._id);
-    console.log('Payment Details:', paymentDetails);
-    
-    if (!items || !items.length || !total || !paymentMethod) {
+    const { paymentMethod, paymentDetails } = req.body;
+    const cart = await Cart.findOne({ user: req.user._id });
+    if (!cart?.items?.length || !['COD', 'GCash', 'Maya', 'Credit Card'].includes(paymentMethod)) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid order data - missing items, total or payment method'
+        message: 'Your cart is empty or the payment method is invalid.'
       });
     }
+    const items = cart.items.map(item => normalizeCartItem({ ...item.toObject(), quantity: item.quantity }));
+    const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const total = Math.round(subtotal * 1.12 * 100) / 100;
 
     const order = new Order({ 
       user: req.user._id, 
       items, 
       total,
       paymentMethod,
-      paymentDetails,  
-      status: paymentMethod === 'COD' ? 'pending' : 'confirmed' 
+      paymentDetails: typeof paymentDetails === 'object' && paymentDetails !== null ? paymentDetails : {},
+      status: 'pending'
     });
     
     await order.save();
@@ -296,6 +360,9 @@ app.post('/api/orders', authenticate, async (req, res) => {
     await User.findByIdAndUpdate(req.user._id, { 
       $push: { orders: order._id } 
     });
+    cart.items = [];
+    cart.total = 0;
+    await cart.save();
 
     console.log('Order created successfully:', order._id);
     
@@ -308,10 +375,10 @@ app.post('/api/orders', authenticate, async (req, res) => {
       }
     });
   } catch (err) {
-    console.error('Order creation error:', err);
+    console.error('Order creation failed');
     res.status(500).json({ 
       success: false, 
-      message: 'Failed to place order: ' + err.message 
+      message: 'Failed to place order.'
     });
   }
 });
@@ -327,50 +394,6 @@ app.get('/api/orders', authenticate, async (req, res) => {
   }
 });
 
-
-app.post('/api/giftcards', authenticate, async (req, res) => {
-  try {
-    const { amount, recipientEmail, recipientName, message } = req.body;
-    if (!amount || !recipientEmail || !recipientName) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Amount, recipient email, and recipient name are required' 
-      });
-    }
-
-    const code = Math.random().toString(36).substring(2, 10).toUpperCase();
-    const giftCard = new GiftCard({
-      user: req.user._id,
-      amount: parseInt(amount),
-      recipientEmail,
-      recipientName,
-      message: message || '',
-      code
-    });
-
-    await giftCard.save();
-    
-    res.status(201).json({
-      success: true,
-      giftCard: {
-        _id: giftCard._id,
-        amount: giftCard.amount,
-        recipientEmail: giftCard.recipientEmail,
-        recipientName: giftCard.recipientName,
-        message: giftCard.message,
-        code: giftCard.code,
-        isRedeemed: giftCard.isRedeemed,
-        createdAt: giftCard.createdAt
-      }
-    });
-  } catch (err) {
-    console.error('Gift card creation error:', err);
-    res.status(400).json({ 
-      success: false, 
-      message: 'Failed to create gift card: ' + err.message 
-    });
-  }
-});
 
 app.get('/api/giftcards', authenticate, async (req, res) => {
   try {
@@ -471,8 +494,12 @@ app.post('/api/change-password', authenticate, async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
     if (!currentPassword || !newPassword) return res.status(400).json({ success: false, message: 'Current and new password are required' });
+    if (typeof newPassword !== 'string' || newPassword.length < 8 || Buffer.byteLength(newPassword, 'utf8') > 72) {
+      return res.status(400).json({ success: false, message: 'New password must be 8 to 72 bytes' });
+    }
 
     const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
     const isMatch = await bcrypt.compare(currentPassword, user.password);
     if (!isMatch) return res.status(401).json({ success: false, message: 'Current password is incorrect' });
 
@@ -502,7 +529,7 @@ app.get('/api/cart', authenticate, async (req, res) => {
 
 app.post('/api/cart/add', authenticate, async (req, res) => {
   try {
-    const { itemId, name, price, quantity, size, flavor, notes } = req.body;
+    const safeItem = normalizeCartItem(req.body);
     
     let cart = await Cart.findOne({ user: req.user._id });
     
@@ -511,23 +538,15 @@ app.post('/api/cart/add', authenticate, async (req, res) => {
     }
     
     const existingItemIndex = cart.items.findIndex(item => 
-      item.itemId === itemId && item.size === size && item.flavor === flavor
+      item.itemId === safeItem.itemId && item.size === safeItem.size && item.flavor === safeItem.flavor
     );
     
     if (existingItemIndex > -1) {
 
-      cart.items[existingItemIndex].quantity += quantity;
+      cart.items[existingItemIndex].quantity += safeItem.quantity;
+      if (cart.items[existingItemIndex].quantity > 50) throw new Error('Maximum quantity is 50 per item');
     } else {
-
-      cart.items.push({
-        itemId,
-        name,
-        price,
-        quantity,
-        size,
-        flavor,
-        notes: notes || ''
-      });
+      cart.items.push(safeItem);
     }
     
 
@@ -536,14 +555,17 @@ app.post('/api/cart/add', authenticate, async (req, res) => {
     await cart.save();
     res.json({ success: true, cart });
   } catch (err) {
-    res.status(500).json({ success: false, message: 'Failed to add item to cart' });
+    res.status(400).json({ success: false, message: err.message || 'Failed to add item to cart' });
   }
 });
 
 app.put('/api/cart/update/:itemIndex', authenticate, async (req, res) => {
   try {
-    const { quantity } = req.body;
-    const itemIndex = parseInt(req.params.itemIndex);
+    const quantity = Number(req.body.quantity);
+    const itemIndex = Number(req.params.itemIndex);
+    if (!Number.isInteger(itemIndex) || !Number.isInteger(quantity) || quantity < 0 || quantity > 50) {
+      return res.status(400).json({ success: false, message: 'Invalid item or quantity' });
+    }
     
     let cart = await Cart.findOne({ user: req.user._id });
     
@@ -606,16 +628,6 @@ app.delete('/api/cart/clear', authenticate, async (req, res) => {
   }
 });
 
-app.get('/api/debug/collections', async (req, res) => {
-  const collections = await mongoose.connection.db.listCollections().toArray();
-  res.json(collections.map(c => c.name));
-});
-
-app.get('/api/debug/reservations', async (req, res) => {
-  const reservations = await Reservation.find().populate('user', 'name email');
-  res.json(reservations);
-});
-
 console.log('Current environment:', process.env.NODE_ENV);
 
 const isAdmin = (req, res, next) => {
@@ -624,6 +636,9 @@ const isAdmin = (req, res, next) => {
     if (!token) throw new Error('Authentication required');
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (decoded.isAdmin !== true || decoded._id !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Admin privileges required' });
+    }
 
     req.user = decoded;
     next();
@@ -632,15 +647,18 @@ const isAdmin = (req, res, next) => {
   }
 };
 
-app.post('/api/admin/login', async (req, res) => {
+app.post('/api/admin/login', authLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) throw new Error('Email and password required');
 
-    const ADMIN_EMAIL = 'hungryNook@gmail.com';
-    const ADMIN_PASSWORD = '123456';
+    const ADMIN_EMAIL = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+    const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 
-    if (email !== ADMIN_EMAIL || password !== ADMIN_PASSWORD) {
+    if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
+      return res.status(503).json({ success: false, message: 'Admin login is not configured' });
+    }
+    if (typeof email !== 'string' || typeof password !== 'string' || email.trim().toLowerCase() !== ADMIN_EMAIL || password !== ADMIN_PASSWORD) {
       throw new Error('Invalid admin credentials');
     }
 
@@ -675,7 +693,7 @@ app.get('/api/admin/orders', isAdmin, async (req, res) => {
     
     res.json({ success: true, orders });
   } catch (err) {
-    console.error('Admin orders error:', err);
+    console.error('Admin orders request failed');
     res.status(500).json({ success: false, message: 'Failed to fetch orders' });
   }
 });
@@ -688,7 +706,9 @@ app.put('/api/admin/orders/:id/status', isAdmin, async (req, res) => {
     }
     
     const { status } = req.body;
-    if (!status) throw new Error('Status is required');
+    if (!['pending', 'confirmed', 'preparing', 'ready', 'completed', 'cancelled'].includes(status)) {
+      return res.status(400).json({ success: false, message: 'Invalid order status' });
+    }
 
     const order = await Order.findByIdAndUpdate(
       req.params.id,
@@ -719,7 +739,7 @@ app.get('/api/admin/reservations', isAdmin, async (req, res) => {
     
     res.json({ success: true, reservations });
   } catch (err) {
-    console.error('Admin reservations error:', err);
+    console.error('Admin reservations request failed');
     res.status(500).json({ success: false, message: 'Failed to fetch reservations' });
   }
 });
@@ -732,7 +752,9 @@ app.put('/api/admin/reservations/:id/status', isAdmin, async (req, res) => {
     }
     
     const { status } = req.body;
-    if (!status) throw new Error('Status is required');
+    if (!['pending', 'confirmed', 'seated', 'completed', 'cancelled'].includes(status)) {
+      return res.status(400).json({ success: false, message: 'Invalid reservation status' });
+    }
 
     const reservation = await Reservation.findByIdAndUpdate(
       req.params.id,
