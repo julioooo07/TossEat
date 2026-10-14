@@ -376,7 +376,7 @@ const Dashboard = () => {
       <div className="dashboard-header">
         <div className="welcome-section">
           <h1>Welcome back, {user?.name}!</h1>
-          <p>Here's what's happening with your Hungry Nook experience</p>
+          <p>Here's what's happening with your Toss Eat experience</p>
           <div className="user-stats">
             <span className="stat-badge">
               {stats.totalOrders > 0 ? `${stats.totalOrders} total orders` : 'New member'}

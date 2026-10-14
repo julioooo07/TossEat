@@ -5,6 +5,10 @@ import { useChatbot } from '../context/ChatbotContext';
 import { menuItems, CHICKEN_WING_FLAVORS } from '../data/menuItems';
 import './Menu.css';
 
+const keepCurrentMenuItems = (items) => items.filter(item =>
+  menuItems.some(menuItem => String(menuItem.id) === String(item.id))
+);
+
 const Menu = () => {
   const { user } = useAuth();
   const { addToCart } = useCart();
@@ -17,6 +21,8 @@ const Menu = () => {
   const [priceRange, setPriceRange] = useState('All Prices');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFlavors, setSelectedFlavors] = useState({});
+  const [extraFlavorEnabled, setExtraFlavorEnabled] = useState({});
+  const [selectedAdditionalFlavors, setSelectedAdditionalFlavors] = useState({});
   const [selectedVariants, setSelectedVariants] = useState({});
   const [showBilaoModal, setShowBilaoModal] = useState(false);
   const [selectedBilaoItem, setSelectedBilaoItem] = useState(null);
@@ -25,9 +31,7 @@ const Menu = () => {
 
   // Add to categories array
   const categories = [
-    'ALL', 'RECOMMENDED', 'PASTA', 'COMBOMEALS', 'RICEMEALS', 'CHICKENWINGS', 'CHICKENBILAO',
-    'PIZZA', 'BENTOMEALS', 'SANDWICHES', 'FRIESNACHOS', 'FRIES', 'BURGERS',
-    'CLASSICMILKTEA', 'MANGOSHAKESERIES', 'FRAPPE', 'FRUITTEAS', 'LEMONSERIES', 'SMOOTHIES', 'ADDONS'
+    'ALL', 'RECOMMENDED', 'UNLIMITEDWINGS', 'CHICKENWINGS', 'DIPS', 'ADDONS', 'DRINKS'
   ];
 
   const priceRanges = ['All Prices', 'Under ₱100', '₱100 - ₱200', '₱200 - ₱300', '₱300 - ₱500', 'Over ₱500'];
@@ -40,7 +44,7 @@ const Menu = () => {
       
       if (storedRecs && recommendations.length === 0) {
         try {
-          const parsedRecs = JSON.parse(storedRecs);
+          const parsedRecs = keepCurrentMenuItems(JSON.parse(storedRecs));
           if (setRecommendations) {
             setRecommendations(parsedRecs);
           }
@@ -76,7 +80,7 @@ const Menu = () => {
       
       if (storedRecs) {
         try {
-          const parsedRecs = JSON.parse(storedRecs);
+          const parsedRecs = keepCurrentMenuItems(JSON.parse(storedRecs));
           if (setRecommendations) {
             setRecommendations(parsedRecs);
             setShowRecommendations(true);
@@ -132,6 +136,7 @@ const Menu = () => {
       let p = (item.variants?.length
         ? (item.variants.find(v => v.label === (selectedVariants[item.id] ?? item.variants[0].label)) || item.variants[0])?.price
         : item.price);
+      if (p != null && item.extraFlavorPrice && extraFlavorEnabled[item.id]) p += item.extraFlavorPrice;
 
       let matchesPrice = true;
       switch (priceRange) {
@@ -158,6 +163,7 @@ const Menu = () => {
     priceRange,
     searchTerm,
     selectedVariants,
+    extraFlavorEnabled,
     showRecommendations,
     recommendations
   ]);
@@ -175,6 +181,7 @@ const Menu = () => {
         let p = (item.variants?.length
           ? (item.variants.find(v => v.label === (selectedVariants[item.id] ?? item.variants[0].label)) || item.variants[0])?.price
           : item.price);
+        if (p != null && item.extraFlavorPrice && extraFlavorEnabled[item.id]) p += item.extraFlavorPrice;
 
         let matchesPrice = true;
         switch (priceRange) {
@@ -212,21 +219,23 @@ const Menu = () => {
   };
 
   const displayPrice = (item) => {
+    const extraFlavorCost = item.extraFlavorPrice && extraFlavorEnabled[item.id] ? item.extraFlavorPrice : 0;
     if (item.variants?.length) {
       const chosen = selectedVariants[item.id] ?? item.variants[0].label;
       const v = item.variants.find(x => x.label === chosen) || item.variants[0];
-      return v.price == null ? 'TBD' : `₱${v.price}`;
+      return v.price == null ? 'TBD' : `₱${v.price + extraFlavorCost}`;
     }
-    return item.price == null ? 'TBD' : `₱${item.price}`;
+    return item.price == null ? 'TBD' : `₱${item.price + extraFlavorCost}`;
   };
 
   const chargePrice = (item) => {
+    const extraFlavorCost = item.extraFlavorPrice && extraFlavorEnabled[item.id] ? item.extraFlavorPrice : 0;
     if (item.variants?.length) {
       const chosen = selectedVariants[item.id] ?? item.variants[0].label;
       const v = item.variants.find(x => x.label === chosen) || item.variants[0];
-      return v.price ?? 0;
+      return (v.price ?? 0) + extraFlavorCost;
     }
-    return item.price ?? 0;
+    return (item.price ?? 0) + extraFlavorCost;
   };
 
   const openBilaoModal = (item) => {
@@ -296,6 +305,13 @@ const Menu = () => {
 
   const handleFlavorChange = (itemId, flavor) => {
     setSelectedFlavors(prev => ({ ...prev, [itemId]: flavor }));
+    const item = menuItems.find(menuItem => menuItem.id === itemId);
+    if (item?.extraFlavorPrice && selectedAdditionalFlavors[itemId] === flavor) {
+      setSelectedAdditionalFlavors(prev => ({
+        ...prev,
+        [itemId]: item.flavors.find(availableFlavor => availableFlavor !== flavor)
+      }));
+    }
   };
 
   const handleVariantChange = (itemId, label) => {
@@ -316,6 +332,10 @@ const Menu = () => {
     setAddingItem(item.id);
 
     const selectedFlavor = selectedFlavors[item.id] || (item.hasFlavor ? (item.flavors?.[0] ?? 'Original') : 'Original');
+    const additionalFlavor = selectedAdditionalFlavors[item.id];
+    const chosenFlavors = additionalFlavor && extraFlavorEnabled[item.id]
+      ? `${selectedFlavor}, ${additionalFlavor}`
+      : selectedFlavor;
     const selectedVariant = selectedVariants[item.id] ?? (item.variants?.[0]?.label || 'Regular');
     const price = chargePrice(item);
 
@@ -325,7 +345,8 @@ const Menu = () => {
       price,
       quantity: 1,
       size: selectedVariant,
-      flavor: selectedFlavor
+      flavor: chosenFlavors,
+      notes: item.isUnlimitedWings ? item.notes : (additionalFlavor && extraFlavorEnabled[item.id] ? 'Second flavor add-on (+₱10)' : '')
     });
 
     if (result?.success) {
@@ -342,7 +363,7 @@ const Menu = () => {
       <RecommendationBanner />
       <div className="nook-header">
         <div className="header-content">
-          <div className="nook-logo">Hungry Nook</div>
+          <div className="nook-logo">Toss Eat</div>
 
           <div className="price-filter-section">
             <label>Price Range:</label>
@@ -366,6 +387,15 @@ const Menu = () => {
           </div>
         </div>
       </div>
+      <section className="house-rules" aria-labelledby="house-rules-title">
+        <h2 id="house-rules-title">Unlimited Wings House Rules</h2>
+        <ul>
+          <li>One flavor per customer upon refill.</li>
+          <li>No leftovers.</li>
+          <li>Leftover chicken: ₱30 per piece.</li>
+          <li>Pulled chicken: ₱150 per table.</li>
+        </ul>
+      </section>
       <div className="category-nav">
         <div className="category-scroll">
           {categories.map(category => (
@@ -443,10 +473,58 @@ const Menu = () => {
                         onChange={(e) => handleFlavorChange(item.id, e.target.value)}
                         className="flavor-select"
                       >
-                        {item.flavors.map(flavor => (
-                          <option key={flavor} value={flavor}>{flavor}</option>
-                        ))}
+                        {item.flavorGroups
+                          ? item.flavorGroups.map(group => (
+                            <optgroup key={group.label} label={group.label}>
+                              {group.flavors.map(flavor => <option key={flavor} value={flavor}>{flavor}</option>)}
+                            </optgroup>
+                          ))
+                          : item.flavors.map(flavor => <option key={flavor} value={flavor}>{flavor}</option>)}
                       </select>
+                    </div>
+                  )}
+
+                  {item.extraFlavorPrice && (
+                    <div className="extra-flavor-option">
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={!!extraFlavorEnabled[item.id]}
+                          onChange={(event) => {
+                            const enabled = event.target.checked;
+                            setExtraFlavorEnabled(previous => ({ ...previous, [item.id]: enabled }));
+                            if (enabled && !selectedAdditionalFlavors[item.id]) {
+                              const primaryFlavor = selectedFlavors[item.id] || item.flavors[0];
+                              setSelectedAdditionalFlavors(previous => ({
+                                ...previous,
+                                [item.id]: item.flavors.find(flavor => flavor !== primaryFlavor)
+                              }));
+                            }
+                          }}
+                        />
+                        Add a second flavor (+₱{item.extraFlavorPrice})
+                      </label>
+                      {extraFlavorEnabled[item.id] && (
+                        <select
+                          value={selectedAdditionalFlavors[item.id] || item.flavors.find(flavor => flavor !== (selectedFlavors[item.id] || item.flavors[0])) || item.flavors[0]}
+                          onChange={(event) => setSelectedAdditionalFlavors(previous => ({ ...previous, [item.id]: event.target.value }))}
+                          className="flavor-select"
+                          aria-label="Choose a second flavor"
+                        >
+                          {item.flavorGroups
+                            ? item.flavorGroups.map(group => {
+                              const availableFlavors = group.flavors.filter(flavor => flavor !== (selectedFlavors[item.id] || item.flavors[0]));
+                              return availableFlavors.length ? (
+                                <optgroup key={group.label} label={group.label}>
+                                  {availableFlavors.map(flavor => <option key={flavor} value={flavor}>{flavor}</option>)}
+                                </optgroup>
+                              ) : null;
+                            })
+                            : item.flavors.filter(flavor => flavor !== (selectedFlavors[item.id] || item.flavors[0])).map(flavor => (
+                              <option key={flavor} value={flavor}>{flavor}</option>
+                            ))}
+                        </select>
+                      )}
                     </div>
                   )}
 
@@ -460,7 +538,7 @@ const Menu = () => {
                     onClick={() => handleAddToCart(item)}
                     disabled={addingItem === item.id}
                   >
-                    {addingItem === item.id ? 'Adding…' : item.isBilao ? 'Select Flavors' : 'Add'}
+                    {addingItem === item.id ? 'Adding…' : item.isBilao ? 'Select Flavors' : item.isUnlimitedWings ? 'Add 1 person' : 'Add'}
                   </button>
                 </div>
               </div>

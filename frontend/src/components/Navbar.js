@@ -109,28 +109,7 @@ const Navbar = () => {
                 </button>
               </li>
             </>
-          ) : (
-            <>
-              {/* Guest Navigation */}
-              <li className="nav-item">
-                <Link 
-                  to="/login" 
-                  className={`nav-link ${location.pathname === '/login' ? 'active' : ''}`}
-                >
-                  Login
-                </Link>
-              </li>
-
-              <li className="nav-item">
-                <Link 
-                  to="/register" 
-                  className={`nav-link ${location.pathname === '/register' ? 'active' : ''}`}
-                >
-                  Register
-                </Link>
-              </li>
-            </>
-          )}
+          ) : null}
 
         </ul>
       </div>

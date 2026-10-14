@@ -137,7 +137,7 @@ const Register = () => {
   return (
     <div className="auth-container">
       <div className="auth-form">
-        <h2>Join Hungry Nook</h2>
+        <h2>Join Toss Eat</h2>
         
         {success && (
           <div className="success-message">

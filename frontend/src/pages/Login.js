@@ -70,7 +70,7 @@ const Login = () => {
   return (
     <div className="auth-container">
       <div className="auth-form">
-        <h2>Login to Hungry Nook</h2>
+        <h2>Login to Toss Eat</h2>
         
         {error && (
           <div className="error-message">

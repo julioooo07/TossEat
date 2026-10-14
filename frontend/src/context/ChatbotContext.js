@@ -19,7 +19,7 @@ export const ChatbotProvider = ({ children }) => {
   const chatbotQuestions = [
     {
       id: 1,
-      question: "Welcome to Hungry Nook! I'd like to get to know your food preferences to recommend the perfect dishes for you. What's your average budget per meal?",
+      question: "Welcome to Toss Eat! I'd like to get to know your food preferences to recommend the perfect dishes for you. What's your average budget per meal?",
       type: "budget",
       options: ["Under ₱100", "₱100-₱200", "₱200-₱300", "₱300-₱500", "Over ₱500"]
     },
@@ -302,7 +302,7 @@ const startChatbot = (firstLogin = false) => {
   setChatHistory([{
     id: 1,
     sender: 'bot',
-    message: "👋 Welcome to Hungry Nook! Let's personalize your experience. I'll ask a few questions to understand your food preferences and recommend the perfect dishes for you!",
+    message: "👋 Welcome to Toss Eat! Let's personalize your experience. I'll ask a few questions to understand your food preferences and recommend the perfect dishes for you!",
     timestamp: new Date()
   }, {
     id: 2,

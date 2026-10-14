@@ -39,7 +39,7 @@ const Receipt = () => {
     <div className="receipt-container">
       <div className="receipt-content">
         <div className="receipt-header">
-          <h1>Hungry Nook</h1>
+          <h1>Toss Eat</h1>
           <p>E-Receipt</p>
           <div className="receipt-info">
             <span>Order #: {order._id.slice(-8).toUpperCase()}</span>

@@ -6,7 +6,6 @@ const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
-console.log('[DEBUG] JWT_SECRET in use:', process.env.JWT_SECRET);
 const app = express();
 
 app.use(cors({
@@ -28,14 +27,14 @@ app.use(express.json());
 
 const connectDB = async () => {
   try {
-    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/hungry_nook', {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
+    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/hungry_nook', {
       serverSelectionTimeoutMS: 5000
     });
     console.log('MongoDB connected successfully!');
   } catch (err) {
-    console.error('MongoDB connection failed:', err);
+    console.error(`MongoDB connection failed (${process.env.MONGODB_URI ? 'MONGODB_URI from backend/.env' : 'default local database'}).`);
+    console.error('Start MongoDB locally or set MONGODB_URI to a reachable MongoDB instance.');
+    console.error(err.message);
     process.exit(1);
   }
 };
@@ -199,7 +198,7 @@ app.post('/api/register', async (req, res) => {
 app.post('/api/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    console.log('[LOGIN ATTEMPT] Email:', email, 'Password:', password);
+    console.log('[LOGIN ATTEMPT] Email:', email);
 
     if (!email || !password) {
       return res.status(400).json({ success: false, message: 'Email and password required' });
@@ -600,9 +599,7 @@ app.get('/api/debug/reservations', async (req, res) => {
   res.json(reservations);
 });
 
-console.log('Verifying token with secret:', process.env.JWT_SECRET);
 console.log('Current environment:', process.env.NODE_ENV);
-console.log('JWT_SECRET:', process.env.JWT_SECRET);
 
 const isAdmin = (req, res, next) => {
   try {

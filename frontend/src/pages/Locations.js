@@ -16,29 +16,20 @@ L.Icon.Default.mergeOptions({
 const branches = [
   {
     id: 1,
-    name: "MAIN BRANCH",
-    address: "123 Hungry Nook Street, Food District",
-    phone: "(02) 1234-5678",
-    hours: "9:00 AM - 10:00 PM",
-    coordinates: [14.5995, 120.9842],
+    name: "Toss Eat – Molino Blvd. (Main / Bacoor Branch)",
+    address: "Unit 4B, Building A, Paseo de Bacoor, Molino Boulevard, Molino III, Bacoor, Cavite",
+    phone: "+63 977 473 7572",
+    hours: ["Monday – Sunday: 11:00 AM – 11:00 PM"],
+    coordinates: [14.39825, 120.97846],
     image: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400&h=300&fit=crop"
   },
   {
     id: 2,
-    name: "NORTHSIDE BRANCH",
-    address: "456 North Avenue, Quezon City",
-    phone: "(02) 8765-4321",
-    hours: "10:00 AM - 11:00 PM",
-    coordinates: [14.6760, 121.0437],
-    image: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=400&h=300&fit=crop"
-  },
-  {
-    id: 3,
-    name: "EASTWOOD BRANCH",
-    address: "789 Eastwood City, Libis",
-    phone: "(02) 5555-1234",
-    hours: "8:00 AM - 12:00 AM",
-    coordinates: [14.6104, 121.0781],
+    name: "Toss Eat – Ananda Square",
+    address: "Retail Unit 1, Ananda Square, Alabang–Zapote Road, Talon Uno, Las Piñas, Metro Manila",
+    phone: null,
+    hours: ["Monday – Thursday: 11:00 AM – 12:00 AM", "Friday – Sunday: 11:00 AM – 2:00 AM"],
+    coordinates: [14.4401, 121.00244],
     image: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400&h=300&fit=crop"
   }
 ];
@@ -58,8 +49,8 @@ const Locations = () => {
   };
 
   const handleGetDirections = (branch) => {
-    const [lat, lng] = branch.coordinates;
-    const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+    const destination = encodeURIComponent(`${branch.name}, ${branch.address}`);
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${destination}`;
     window.open(url, '_blank');
   };
 
@@ -67,22 +58,9 @@ const Locations = () => {
     <div className="locations-container">
       <div className="page-header">
 
-        <video 
-          autoPlay 
-          muted 
-          loop 
-          playsInline 
-          className="page-header-video"
-        >
-          <source src="/videos/Homepage.mp4" type="video/mp4" />
-
-          Your browser does not support the video tag.
-        </video>
-        <div className="page-header-overlay"></div>
-
         <div className="page-header-content">
           <h1>OUR LOCATIONS</h1>
-          <p>Find your nearest Hungry Nook branch</p>
+          <p>Find your nearest Toss Eat branch</p>
           
           {user && (
             <p className="logged-in-info">
@@ -108,8 +86,11 @@ const Locations = () => {
                 <div className="branch-info">
                   <h3>{branch.name}</h3>
                   <p className="branch-address">{branch.address}</p>
-                  <p className="branch-phone">{branch.phone}</p>
-                  <p className="branch-hours">{branch.hours}</p>
+                  {branch.phone && <p className="branch-phone">Contact: <a href={`tel:${branch.phone.replace(/\s/g, '')}`}>{branch.phone}</a></p>}
+                  <div className="branch-hours">
+                    <strong>Operating Hours:</strong>
+                    {branch.hours.map(hours => <p key={hours}>{hours}</p>)}
+                  </div>
                 </div>
                 <button 
                   className="btn btn-primary directions-btn"
@@ -142,7 +123,7 @@ const Locations = () => {
                   <Popup>
                     <strong>{selectedBranch.name}</strong><br />
                     {selectedBranch.address}<br />
-                    {selectedBranch.phone}
+                    {selectedBranch.phone && <><br />{selectedBranch.phone}</>}
                   </Popup>
                 </Marker>
               </MapContainer>
@@ -152,8 +133,9 @@ const Locations = () => {
               <div className="selected-branch-info">
                 <h3>{selectedBranch.name}</h3>
                 <p><strong>Address:</strong> {selectedBranch.address}</p>
-                <p><strong>Phone:</strong> {selectedBranch.phone}</p>
-                <p><strong>Hours:</strong> {selectedBranch.hours}</p>
+                {selectedBranch.phone && <p><strong>Contact Number:</strong> <a href={`tel:${selectedBranch.phone.replace(/\s/g, '')}`}>{selectedBranch.phone}</a></p>}
+                <p><strong>Operating Hours:</strong></p>
+                {selectedBranch.hours.map(hours => <p key={hours}>{hours}</p>)}
                 <button 
                   className="btn btn-primary"
                   onClick={() => handleGetDirections(selectedBranch)}

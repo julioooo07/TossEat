@@ -8,7 +8,6 @@ const Home = () => {
   const navigate = useNavigate();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const videoRef = useRef(null);
   const menuRef = useRef(null);
 
   const openModal = () => setIsModalOpen(true);
@@ -35,27 +34,21 @@ const Home = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  useEffect(() => {
-    if (videoRef.current) {
-      videoRef.current.play().catch(error => {
-        console.log('Video autoplay failed:', error);
-      });
-    }
-  }, []);
-
   return (
     <div className="home-container">
       <div className="home-logo">
         <Link to="/">
-          <img 
-            src="/images/hungry nook logo.png" 
-            alt="Hungry Nook Logo" 
-            className="logo-image"
-          />
+          <span className="brand-wordmark">Toss Eat</span>
         </Link>
       </div>
 
       <div className="burger-menu" ref={menuRef}>
+        {!user && (
+          <div className="header-auth-links">
+            <Link to="/login" className="header-auth-link">Login</Link>
+            <Link to="/register" className="header-auth-link header-register-link">Register</Link>
+          </div>
+        )}
         <button 
           className={`burger-button ${isMenuOpen ? 'active' : ''}`}
           onClick={toggleMenu}
@@ -81,26 +74,14 @@ const Home = () => {
                 )}
                 <button className="burger-link burger-logout" onClick={handleLogout}>Logout</button>
               </>
-            ) : (
-              <>
-                <Link to="/login" className="burger-link" onClick={() => setIsMenuOpen(false)}>Login</Link>
-                <Link to="/register" className="burger-link" onClick={() => setIsMenuOpen(false)}>Register</Link>
-              </>
-            )}
+            ) : null}
           </div>
         </div>
       </div>
 
       <section className="hero-section">
-        <div className="video-background">
-          <video ref={videoRef} autoPlay muted loop playsInline className="background-video">
-            <source src="/videos/Homepage Montage.mp4" type="video/mp4" />
-          </video>
-          <div className="video-overlay"></div>
-        </div>
-        
         <div className="hero-content">
-          <h1>Welcome to Hungry Nook</h1>
+          <h1>Welcome to Toss Eat</h1>
           <p>Delicious food, cozy atmosphere, unforgettable experiences</p>
           {!user ? (
             <div className="hero-buttons">
@@ -121,7 +102,7 @@ const Home = () => {
           <div className="about-text">
             <h2>About Us</h2>
             <p>
-              At Hungry Nook, we believe that food is more than something you eat â€” 
+              At Toss Eat, we believe that food is more than something you eat â€”
               it's an experience that brings people closer together. Born out of a love 
               for bold flavors and warm gatherings, our restaurant is a cozy corner 
               where friends, families, and food lovers come to connect, celebrate, 
@@ -134,7 +115,7 @@ const Home = () => {
               to satisfy cravings while making you feel right at home.
             </p>
             <p className="about-conclusion">
-              Hungry Nook is not just a place to dine â€” it's a place to belong. 
+              Toss Eat is not just a place to dine â€” it's a place to belong.
               Step in, share a table, and discover the perfect blend of community, 
               comfort, and unforgettable taste.
             </p>
@@ -142,8 +123,8 @@ const Home = () => {
 
           <div className="about-image">
             <img 
-              src="/images/hungrynooklogo.png" 
-              alt="Hungry Nook Exterior" 
+              src="/images/COMBO1.jpg"
+              alt="Toss Eat restaurant"
               className="about-photo"
             />
           </div>
@@ -152,23 +133,16 @@ const Home = () => {
 
       <section className="promotional-section">
         <div className="promotional-container">
-          <div className="promotional-image">
-            <img 
-              src="/hungrypassport.png" 
-              alt="Nook's Adventure Pass" 
-              className="passport-image-rounded"  
-            />
-          </div>
           <div className="promotional-content">
             <div className="passport-header">
-              <h2 className="passport-title">HUNGRY <span className="highlight">NOOK</span></h2>
+              <h2 className="passport-title">TOSS <span className="highlight">EAT</span></h2>
               <div className="passport-subtitle">PASSPORT</div>
             </div>
             <div className="promotional-subtitle">
               Turn Picky Eaters Into Little Food Explorers
             </div>
             <p>
-              For a limited time only, Nook's Adventure Pass invites our youngest guests 
+              For a limited time only, the Toss Eat Adventure Passport invites our youngest guests
               on a culinary journey to explore our menu. Pick up a Passport when you dine in 
               or collect takeout, then use it to check off the dishes your child tries in 
               the restaurant or at home.
@@ -182,9 +156,9 @@ const Home = () => {
         <div className="vision-mission-container">
           <div className="centered-image">
             <img 
-              src="/images/HUNGRYNOOK.jpg" 
-              alt="Hungry Nook Brand" 
-              className="hungry-nook-image"
+              src="/images/COMBO2.jpg"
+              alt="Toss Eat restaurant"
+              className="brand-feature-image"
             />
           </div>
           <h2 className="vision-mission-title">Our Vision & Mission</h2>
@@ -199,7 +173,7 @@ const Home = () => {
             <div className="mission-card">
               <h3>Our Mission</h3>
               <p>
-                "At Hungry Nook, we serve unlimited comfort food with a side of happiness. 
+                "At Toss Eat, we serve unlimited comfort food with a side of happiness.
                 We keep meals affordable, flavors bold, and our doors open to everyone 
                 who loves to eat, laugh, and feel at home."
               </p>
@@ -212,7 +186,7 @@ const Home = () => {
         <div className="modal-overlay" onClick={closeModal}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>Nook's Adventure Pass</h3>
+              <h3>Toss Eat Adventure Passport</h3>
               <button className="close-button" onClick={closeModal}>Ã—</button>
             </div>
             <div className="modal-body">
@@ -232,8 +206,8 @@ const Home = () => {
               <h4>The Reward:</h4>
               <p>
                 After trying five new dishes, bring your completed Adventure Pass to any 
-                Hungry Nook location to receive our exclusive limited-edition iron-on patches. 
-                Collect all patches to complete your Nook Adventure collection!
+                Toss Eat location to receive our exclusive limited-edition iron-on patches.
+                Collect all patches to complete your Toss Eat Adventure collection!
               </p>
               <h4>Perfect For:</h4>
               <ul>
@@ -279,7 +253,7 @@ const Home = () => {
                 <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.10-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/>
               </svg>
             </a>
-            <a href="mailto:info@hungrynook.com?subject=Message to Hungry Nook" className="social-link email" aria-label="Email">
+            <a href="mailto:info@hungrynook.com?subject=Message to Toss Eat" className="social-link email" aria-label="Email">
               <svg width="18" height="18" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M5.266 9.765A7.077 7.077 0 0 1 12 4.909c1.69 0 3.218.6 4.418 1.582L19.91 3C17.782 1.145 15.055 0 12 0 7.27 0 3.198 2.698 1.24 6.65l4.026 3.115Z"/>
                 <path fill="#34A853" d="M16.04 18.013c-1.09.703-2.474 1.078-4.04 1.078a7.077 7.077 0 0 1-6.723-4.823l-4.04 3.067A11.965 11.965 0 0 0 12 24c2.933 0 5.735-1.043 7.834-3l-3.793-2.987Z"/>
@@ -293,7 +267,7 @@ const Home = () => {
 
       <footer className="copyright-footer">
         <div className="container">
-          <p>Â©2025 HUNGRY NOOK PHILIPPINES. All rights reserved</p>
+          <p>Â©2025 TOSS EAT PHILIPPINES. All rights reserved</p>
         </div>
       </footer>
     </div>

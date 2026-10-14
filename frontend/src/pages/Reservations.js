@@ -22,7 +22,7 @@ const Reservations = () => {
   const [formSuccess, setFormSuccess] = useState('');
   const { user } = useAuth();
   const branches = [
-    { id: 'main', name: 'MAIN BRANCH', address: '123 Hungry Nook Street, Food District' },
+    { id: 'main', name: 'MAIN BRANCH', address: '123 Toss Eat Street, Food District' },
     { id: 'northside', name: 'NORTHSIDE BRANCH', address: '456 North Avenue, Quezon City' },
     { id: 'eastwood', name: 'EASTWOOD BRANCH', address: '789 Eastwood City, Libis' }
   ];
