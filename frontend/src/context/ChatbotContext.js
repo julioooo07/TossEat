@@ -11,7 +11,7 @@ export const useChatbot = () => {
 export const ChatbotProvider = ({ children }) => {
   const [chatbotOpen, setChatbotOpen] = useState(false);
   const [chatHistory, setChatHistory] = useState([]);
-  const [userPreferences, setUserPreferences] = useState(null);
+  const [userPreferences, setUserPreferences] = useState({});
   const [isFirstLogin, setIsFirstLogin] = useState(false);
   const [recommendations, setRecommendations] = useState([]);
   const [chatbotStep, setChatbotStep] = useState(0);
@@ -333,6 +333,11 @@ const startChatbot = (firstLogin = false) => {
 
  const processUserResponse = (response) => {
   const currentQuestion = chatbotQuestions[chatbotStep];
+  const updatedPreferences = {
+    ...userPreferences,
+    [currentQuestion.type]: response
+  };
+  setUserPreferences(updatedPreferences);
   
 
   
@@ -351,11 +356,7 @@ const startChatbot = (firstLogin = false) => {
     setChatHistory(prev => [...prev, botResponse]);
   } else {
     // All questions answered - generate recommendations
-    const finalPreferences = {
-      ...userPreferences,
-      [currentQuestion.type]: response
-    };
-    
+    const finalPreferences = updatedPreferences;
     const recommendations = analyzePreferences(finalPreferences);
     setRecommendations(recommendations);  // Set recommendations in state
     
