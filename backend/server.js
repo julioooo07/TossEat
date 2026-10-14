@@ -8,15 +8,26 @@ const jwt = require('jsonwebtoken');
 
 const app = express();
 
+const allowedOrigins = [
+  'http://127.0.0.1:5500',
+  'http://localhost:5500',
+  'http://localhost:5000',
+  'http://localhost:3000',
+  'http://localhost:5808',
+  'https://localhost:5808',
+  ...(process.env.FRONTEND_URL || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean)
+];
+
 app.use(cors({
-  origin: [
-    'http://127.0.0.1:5500', 
-    'http://localhost:5500', 
-    'http://localhost:5000',
-    'http://localhost:3000',
-    'http://localhost:5808',
-    'https://localhost:5808'  
-  ],
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error('Origin is not allowed by CORS'));
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-auth-token'],
   credentials: true,
@@ -27,13 +38,19 @@ app.use(express.json());
 
 const connectDB = async () => {
   try {
-    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/hungry_nook', {
+    const mongoUri = process.env.MONGODB_URI;
+    const isLocalMongoUri = /^mongodb:\/\/(?:[^@/]+@)?(?:localhost|127\.0\.0\.1|\[?::1\]?)(?::|\/|$)/i.test(mongoUri || '');
+
+    if (process.env.NODE_ENV === 'production' && (!mongoUri || isLocalMongoUri)) {
+      throw new Error('Set MONGODB_URI to a reachable MongoDB Atlas connection string in the Render environment.');
+    }
+
+    await mongoose.connect(mongoUri || 'mongodb://127.0.0.1:27017/hungry_nook', {
       serverSelectionTimeoutMS: 5000
     });
     console.log('MongoDB connected successfully!');
   } catch (err) {
-    console.error(`MongoDB connection failed (${process.env.MONGODB_URI ? 'MONGODB_URI from backend/.env' : 'default local database'}).`);
-    console.error('Start MongoDB locally or set MONGODB_URI to a reachable MongoDB instance.');
+    console.error('MongoDB connection failed. Check that MONGODB_URI is set to a reachable database.');
     console.error(err.message);
     process.exit(1);
   }
@@ -735,5 +752,5 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`CORS enabled for: http://127.0.0.1:5500`);
+  console.log(`CORS enabled for: ${allowedOrigins.join(', ')}`);
 });
