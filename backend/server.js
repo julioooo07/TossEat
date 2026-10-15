@@ -67,6 +67,16 @@ const connectDB = async () => {
     console.log('MongoDB connected successfully!');
   } catch (err) {
     console.error('MongoDB connection failed. Check that MONGODB_URI is set to a reachable database.');
+    const errorName = err?.name || 'Error';
+    const errorCode = err?.code ? ` (${err.code})` : '';
+    const safeMessage = String(err?.message || 'No additional error details provided.')
+      .replace(/mongodb(?:\+srv)?:\/\/[^\s'"]+/gi, '[MongoDB URI redacted]');
+    console.error(`[MongoDB] ${errorName}${errorCode}: ${safeMessage}`);
+    if (err?.cause?.message && err.cause.message !== err.message) {
+      const safeCause = String(err.cause.message)
+      .replace(/mongodb(?:\+srv)?:\/\/[^\s'"]+/gi, '[MongoDB URI redacted]');
+      console.error(`[MongoDB cause] ${safeCause}`);
+    }
     process.exit(1);
   }
 };

@@ -41,6 +41,12 @@ const Login = () => {
         // Store user ID for preferences tracking
         const userId = result.user._id || result.user.email;
         localStorage.setItem('user_id', userId);
+
+        // Admin accounts should always land on the admin dashboard.
+        if (result.user.isAdmin) {
+          navigate('/admin');
+          return;
+        }
         
         // Check if first login (no preferences stored)
         const hasPreferences = localStorage.getItem(`preferences_completed_${userId}`);
@@ -50,8 +56,8 @@ const Login = () => {
           navigate('/menu'); // Navigate to menu first
           // The chatbot will be triggered by FirstLoginHandler
         } else {
-          // Not first login - go to dashboard
-          navigate(result.user.isAdmin ? '/admin' : '/dashboard');
+          // Not first login - go to the user dashboard
+          navigate('/dashboard');
         }
       } else {
         setError(result?.message || 'Login failed. Please check your credentials.');
