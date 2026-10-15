@@ -2,13 +2,11 @@ import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
-import { useChatbot } from '../context/ChatbotContext';
 import './Navbar.css';
 
 const Navbar = () => {
   const { user, logout } = useAuth();
   const { cart } = useCart();
-  const { startChatbot } = useChatbot();
   const location = useLocation();
   const navigate = useNavigate();
   if (location.pathname === '/') return null;
@@ -24,11 +22,19 @@ const Navbar = () => {
       </ul></div></nav>
   );
   return (
-    <nav className="navbar"><div className="nav-container"><ul className="nav-menu">
+    <nav className="navbar"><div className="nav-container customer-nav-container"><ul className="nav-menu customer-nav-menu">
       <li className="nav-item"><Link to="/" className="nav-link">Home</Link></li>
       <li className="nav-item"><Link to="/menu" className="nav-link">Menu</Link></li>
       <li className="nav-item"><Link to="/locations" className="nav-link">Locations</Link></li>
-      {user && <><li className="nav-item"><button onClick={() => startChatbot(false)} className="chatbot-trigger-btn nav-link">Get Recommendations</button></li><li className="nav-item"><Link to="/cart" className="nav-link">Cart ({cartItemCount})</Link></li><li className="nav-item"><Link to="/dashboard" className="nav-link">Dashboard</Link></li><li className="nav-item"><button onClick={handleLogout} className="nav-link logout-btn">Logout</button></li></>}
+      {user && <>
+        <li className="nav-item nav-cart-item"><Link to="/cart" className="nav-link nav-icon-link" aria-label={cartItemCount ? `Cart, ${cartItemCount} items` : 'Cart'} title="Cart">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.1 10.2a2 2 0 002 1.6h8.8a2 2 0 001.9-1.4L22 8H6"/><circle cx="10" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/></svg>
+          {cartItemCount > 0 && <span className="nav-cart-badge">{cartItemCount}</span>}
+        </Link></li>
+        <li className="nav-item nav-logout-item"><button onClick={handleLogout} className="nav-link logout-btn nav-icon-link" aria-label="Log out" title="Log out">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4H5a2 2 0 00-2 2v12a2 2 0 002 2h5M16 16l5-4-5-4M21 12H9"/></svg>
+        </button></li>
+      </>}
     </ul></div></nav>
   );
 };

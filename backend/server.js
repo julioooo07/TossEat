@@ -30,13 +30,15 @@ const allowedOrigins = [
   'https://localhost:5808',
   ...(process.env.FRONTEND_URL || '')
     .split(',')
-    .map((origin) => origin.trim())
+    // Browser Origin headers never include a trailing slash. Normalize values
+    // copied from Vercel so FRONTEND_URL works with or without one.
+    .map((origin) => origin.trim().replace(/\/+$/, ''))
     .filter(Boolean)
 ];
 
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (!origin || allowedOrigins.includes(origin.replace(/\/+$/, ''))) {
       return callback(null, true);
     }
     return callback(new Error('Origin is not allowed by CORS'));

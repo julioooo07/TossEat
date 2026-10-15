@@ -12,7 +12,8 @@ const Chatbot = () => {
     chatbotQuestions,
     chatbotStep,
     sendMessage,
-    closeChatbot
+    closeChatbot,
+    startChatbot
   } = useChatbot();
   
   const [inputValue, setInputValue] = useState('');
@@ -48,10 +49,14 @@ const Chatbot = () => {
     return currentQuestion?.options || [];
   };
 
-  if (!chatbotOpen || user?.isAdmin) return null;
+  if (user?.isAdmin) return null;
 
   return (
-    <div className="chatbot-overlay">
+    <>
+    {user && <button className="recommendation-launcher" type="button" onClick={() => startChatbot(false)} aria-label="Get food recommendations" title="Get recommendations">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a8 8 0 00-4.9 14.3V21l4.9-2 4.9 2v-3.7A8 8 0 0012 3z"/><circle cx="9" cy="11" r=".8"/><circle cx="15" cy="11" r=".8"/><path d="M9.5 14a3.2 3.2 0 005 0M12 1v2M4.5 4.5 6 6M19.5 4.5 18 6"/></svg>
+    </button>}
+    {chatbotOpen && <div className="chatbot-overlay">
       <div className="chatbot-container">
         <div className="chatbot-header">
           <div className="chatbot-title">
@@ -133,7 +138,8 @@ const Chatbot = () => {
           </div>
         </div>
       </div>
-    </div>
+    </div>}
+    </>
   );
 };
 

@@ -1,4 +1,5 @@
 /* components/Chatbot.css */
+.recommendation-launcher{position:fixed!important;right:1.5rem;bottom:1.5rem;z-index:9999;width:3.8rem!important;height:3.8rem;padding:.8rem!important;border:2px solid rgba(255,255,255,.85)!important;border-radius:50%!important;background:var(--primary-color)!important;color:#fff!important;box-shadow:0 5px 18px rgba(0,0,0,.35);display:grid;place-items:center;cursor:pointer}.recommendation-launcher:hover{transform:translateY(-3px) scale(1.04)}.recommendation-launcher svg{width:2rem;height:2rem;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}@media(max-width:480px){.recommendation-launcher{right:1rem;bottom:1rem;width:3.4rem!important;height:3.4rem}}
 .chatbot-overlay {
   position: fixed;
   top: 0;
