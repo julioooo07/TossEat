@@ -8,7 +8,7 @@ const FirstLoginHandler = () => {
   const hasHandledFirstLogin = useRef(false); // ADD THIS REF
 
   useEffect(() => {
-    if (!user || hasHandledFirstLogin.current) return;
+    if (!user || user.isAdmin || hasHandledFirstLogin.current) return;
     
     const userId = user.id || user.email || user._id;
     

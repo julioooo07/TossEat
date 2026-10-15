@@ -139,3 +139,5 @@
 .nav-link:contains("Cart") {
   font-weight: 600;
 }
+.admin-nav-container{justify-content:space-between;align-items:center}.admin-nav-brand{font-family:'Montserrat',sans-serif;font-weight:800;color:var(--white);text-decoration:none;font-size:1.2rem;white-space:nowrap}.admin-nav-brand span{font-size:.75rem;opacity:.8;margin-left:.4rem;text-transform:uppercase;letter-spacing:.08em}.admin-nav-menu{width:100%;margin-left:2rem}.admin-nav-menu .nav-logout-item{margin-left:auto}.admin-nav-menu .logout-btn{width:auto;text-align:center;background:rgba(0,0,0,.16)}
+@media(max-width:768px){.admin-nav-container{flex-wrap:wrap;gap:.5rem}.admin-nav-menu{margin-left:0}.admin-nav-menu .nav-logout-item{margin-left:auto}}

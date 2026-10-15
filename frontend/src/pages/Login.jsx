@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import './Register.css';
+import PasswordField from '../components/PasswordField';
 
 const Login = () => {
   const [formData, setFormData] = useState({
@@ -27,14 +28,21 @@ const Login = () => {
     setLoading(true);
     setError('');
 
-    if (!formData.email || !formData.password) {
-      setError('Please fill in all fields');
+    const normalizedEmail = formData.email.trim();
+    if (!normalizedEmail || !formData.password) {
+      setError('Enter your email and password');
+      setLoading(false);
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      setError('Enter a valid email address');
       setLoading(false);
       return;
     }
 
     try {
-      const result = await login(formData.email, formData.password);
+      const result = await login(normalizedEmail, formData.password);
       
       if (result && result.success) {
         
@@ -95,14 +103,7 @@ const Login = () => {
           
           <div className="form-group">
             <label>Password:</label>
-            <input
-              type="password"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              required
-              placeholder="Enter your password"
-            />
+            <PasswordField id="login-password" name="password" value={formData.password} onChange={handleChange} required autoComplete="current-password" placeholder="Enter your password" />
           </div>
           
           <button type="submit" disabled={loading}>

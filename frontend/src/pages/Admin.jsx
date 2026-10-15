@@ -1,11 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import './Admin.css';
 
 const Admin = () => {
-  const [activeTab, setActiveTab] = useState('orders');
+  const location = useLocation();
+  const [activeTab, setActiveTab] = useState(() => new URLSearchParams(window.location.search).get('tab') === 'menu' ? 'menu' : 'orders');
   const [orders, setOrders] = useState([]);
   const [reservations, setReservations] = useState([]);
+  const [menuItems, setMenuItems] = useState([]);
+  const [menuError, setMenuError] = useState('');
+  const [menuDraft, setMenuDraft] = useState({ name: '', price: '', category: 'DRINKS', description: '' });
   const [stats, setStats] = useState({
     totalOrders: 0,
     pendingOrders: 0,
@@ -75,6 +80,9 @@ const Admin = () => {
             pendingReservations
           }));
         }
+      } else if (activeTab === 'menu') {
+        const response = await api.get('/api/menu');
+        if (response.data.success) setMenuItems(response.data.items);
       }
     } catch (error) {
       alert('Error fetching data: ' + error.message);
@@ -84,10 +92,41 @@ const Admin = () => {
   }, [activeTab, api]);
 
   useEffect(() => {
+    if (new URLSearchParams(location.search).get('tab') === 'menu') setActiveTab('menu');
+  }, [location.search]);
+
+  useEffect(() => {
     if (user?.isAdmin) {
       fetchData();
     }
   }, [user, activeTab, fetchData]);
+
+  const addMenuItem = async (event) => {
+    event.preventDefault();
+    setMenuError('');
+    const name = menuDraft.name.trim();
+    const price = Number(menuDraft.price);
+    const description = menuDraft.description.trim();
+    if (name.length < 2 || name.length > 80) return setMenuError('Name must be between 2 and 80 characters.');
+    if (!Number.isFinite(price) || price < 1 || price > 100000) return setMenuError('Enter a price from ₱1 to ₱100,000.');
+    if (description.length > 300) return setMenuError('Description must be 300 characters or fewer.');
+    try {
+      const response = await api.post('/api/admin/menu', { ...menuDraft, name, price, description }, { headers: getAuthHeaders() });
+      setMenuItems(items => [...items, response.data.item]);
+      setMenuDraft({ name: '', price: '', category: 'DRINKS', description: '' });
+    } catch (error) {
+      setMenuError(error.response?.data?.message || 'Could not add menu item.');
+    }
+  };
+
+  const removeMenuItem = async (id) => {
+    try {
+      await api.delete('/api/admin/menu/' + id, { headers: getAuthHeaders() });
+      setMenuItems(items => items.filter(item => item.id !== id));
+    } catch (error) {
+      setMenuError(error.response?.data?.message || 'Could not remove menu item.');
+    }
+  };
 
   const updateOrderStatus = async (orderId, status) => {
     try {
@@ -206,6 +245,9 @@ const Admin = () => {
       </div>
 
       <div className="admin-tabs">
+        <button className={`tab-button ${activeTab === 'menu' ? 'active' : ''}`} onClick={() => setActiveTab('menu')}>
+          <i className="fas fa-utensils"></i> Menu
+        </button>
         <button 
           className={`tab-button ${activeTab === 'orders' ? 'active' : ''}`}
           onClick={() => setActiveTab('orders')}
@@ -230,6 +272,21 @@ const Admin = () => {
             <div className="loading-spinner"></div>
             <p>Loading...</p>
           </div>
+        )}
+
+        {activeTab === 'menu' && (
+          <section className="menu-management">
+            <div className="section-header"><h2>Menu Management</h2><button className="btn btn-secondary" onClick={fetchData} disabled={loading}>Refresh</button></div>
+            {menuError && <div className="error-message" role="alert">{menuError}</div>}
+            <form className="admin-menu-form" onSubmit={addMenuItem} noValidate>
+              <div className="form-group"><label htmlFor="menu-name">Item name</label><input id="menu-name" value={menuDraft.name} maxLength={80} required onChange={e => setMenuDraft({ ...menuDraft, name: e.target.value })} /></div>
+              <div className="form-group"><label htmlFor="menu-price">Price (₱)</label><input id="menu-price" type="number" min="1" max="100000" step="0.01" value={menuDraft.price} required onChange={e => setMenuDraft({ ...menuDraft, price: e.target.value })} /></div>
+              <div className="form-group"><label htmlFor="menu-category">Category</label><select id="menu-category" value={menuDraft.category} onChange={e => setMenuDraft({ ...menuDraft, category: e.target.value })}>{['CHICKENWINGS','UNLIMITEDWINGS','DIPS','ADDONS','DRINKS'].map(category => <option key={category} value={category}>{category.replace(/([A-Z])/g, ' $1').trim()}</option>)}</select></div>
+              <div className="form-group full"><label htmlFor="menu-description">Description (optional)</label><textarea id="menu-description" rows="2" maxLength={300} value={menuDraft.description} onChange={e => setMenuDraft({ ...menuDraft, description: e.target.value })} /></div>
+              <button className="btn btn-primary" type="submit">Add menu item</button>
+            </form>
+            {menuItems.length ? <div className="admin-menu-items">{menuItems.map(item => <article key={item.id} className="admin-menu-item"><div><strong>{item.name}</strong><p>{item.category} · ₱{Number(item.price).toFixed(2)}</p></div><button type="button" onClick={() => removeMenuItem(item.id)}>Remove</button></article>)}</div> : <div className="empty-state"><h3>No custom menu items yet</h3><p>Add an item above to show it on the customer menu.</p></div>}
+          </section>
         )}
 
         {activeTab === 'orders' && (

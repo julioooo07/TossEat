@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import './Register.css';
+import PasswordField from '../components/PasswordField';
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -57,12 +58,16 @@ const Register = () => {
     setLoading(true);
     setError('');
     setSuccess(false);
-    if (!formData.name || !formData.email || !formData.password || !formData.confirmPassword) {
+    const name = formData.name.trim();
+    const email = formData.email.trim();
+    if (!name || !email || !formData.password || !formData.confirmPassword) {
       setError('Please fill in all fields');
       setLoading(false);
       return;
     }
 
+    if (name.length < 2 || name.length > 100) { setError('Name must be between 2 and 100 characters'); setLoading(false); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setError('Enter a valid email address'); setLoading(false); return; }
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
       setLoading(false);
@@ -75,7 +80,7 @@ const Register = () => {
     }
 
     try {
-      const result = await register(formData.name, formData.email, formData.password);
+      const result = await register(name, email, formData.password);
       
       if (result.success) {
         setSuccess(true);
@@ -173,14 +178,7 @@ const Register = () => {
             
             <div className="form-group">
               <label>Password:</label>
-              <input
-                type="password"
-                name="password"
-                value={formData.password}
-                onChange={handleChange}
-                required
-                placeholder="Enter your password"
-              />
+              <PasswordField id="register-password" name="password" value={formData.password} onChange={handleChange} required autoComplete="new-password" placeholder="Enter your password" />
               {passwordStrength && (
                 <div className={`password-strength ${passwordStrength}`}>
                   {getPasswordStrengthText()}
@@ -198,14 +196,7 @@ const Register = () => {
             
             <div className="form-group">
               <label>Confirm Password:</label>
-              <input
-                type="password"
-                name="confirmPassword"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                required
-                placeholder="Confirm your password"
-              />
+              <PasswordField id="register-confirm-password" name="confirmPassword" value={formData.confirmPassword} onChange={handleChange} required autoComplete="new-password" placeholder="Confirm your password" />
               {formData.confirmPassword && formData.password !== formData.confirmPassword && (
                 <div className="password-strength weak" style={{marginTop: '0.5rem'}}>
                   Passwords do not match

@@ -1,9 +1,11 @@
 // components/Chatbot.js
 import React, { useState, useRef, useEffect } from 'react';
 import { useChatbot } from '../context/ChatbotContext';
+import { useAuth } from '../context/AuthContext';
 import './Chatbot.css';
 
 const Chatbot = () => {
+  const { user } = useAuth();
   const {
     chatbotOpen,
     chatHistory,
@@ -46,7 +48,7 @@ const Chatbot = () => {
     return currentQuestion?.options || [];
   };
 
-  if (!chatbotOpen) return null;
+  if (!chatbotOpen || user?.isAdmin) return null;
 
   return (
     <div className="chatbot-overlay">

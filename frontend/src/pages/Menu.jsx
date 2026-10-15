@@ -10,13 +10,14 @@ const keepCurrentMenuItems = (items) => items.filter(item =>
 );
 
 const Menu = () => {
-  const { user } = useAuth();
+  const { user, api } = useAuth();
   const { addToCart } = useCart();
   const { recommendations, startChatbot, setRecommendations } = useChatbot(); // Add setRecommendations
   
   const [addingItem, setAddingItem] = useState(null);
   const [showRecommendations, setShowRecommendations] = useState(false);
   const [filteredItems, setFilteredItems] = useState([]);
+  const [availableMenuItems, setAvailableMenuItems] = useState(menuItems);
   const [activeCategory, setActiveCategory] = useState('ALL');
   const [priceRange, setPriceRange] = useState('All Prices');
   const [searchTerm, setSearchTerm] = useState('');
@@ -35,6 +36,14 @@ const Menu = () => {
   ];
 
   const priceRanges = ['All Prices', 'Under ₱100', '₱100 - ₱200', '₱200 - ₱300', '₱300 - ₱500', 'Over ₱500'];
+
+  useEffect(() => {
+    api.get('/api/menu').then(response => {
+      if (response.data.success && response.data.items?.length) {
+        setAvailableMenuItems([...menuItems, ...response.data.items.map(item => ({ ...item, id: item.id, popular: false }))]);
+      }
+    }).catch(() => {});
+  }, [api]);
 
   // First useEffect - load stored recommendations
   useEffect(() => {
@@ -128,7 +137,7 @@ const Menu = () => {
     }
 
     // Normal filtering for other categories
-    const newFilteredItems = menuItems.filter(item => {
+    const newFilteredItems = availableMenuItems.filter(item => {
       const matchesCategory = activeCategory === 'ALL' || item.category === activeCategory;
       
       let p = (item.variants?.length
@@ -164,6 +173,7 @@ const Menu = () => {
     extraFlavorEnabled,
     showRecommendations,
     recommendations
+    , availableMenuItems
   ]);
 
   // Update the RecommendationBanner component
@@ -302,7 +312,7 @@ const Menu = () => {
 
   const handleFlavorChange = (itemId, flavor) => {
     setSelectedFlavors(prev => ({ ...prev, [itemId]: flavor }));
-    const item = menuItems.find(menuItem => menuItem.id === itemId);
+    const item = availableMenuItems.find(menuItem => String(menuItem.id) === String(itemId));
     if (item?.extraFlavorPrice && selectedAdditionalFlavors[itemId] === flavor) {
       setSelectedAdditionalFlavors(prev => ({
         ...prev,

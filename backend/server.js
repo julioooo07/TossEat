@@ -91,6 +91,7 @@ const UserSchema = new mongoose.Schema({
   name: String,
   email: { type: String, unique: true },
   password: String,
+  isAdmin: { type: Boolean, default: false },
   orders: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Order' }],
   reservations: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Reservation' }]
 }, { timestamps: true });
@@ -159,6 +160,7 @@ const Order = mongoose.model('Order', OrderSchema);
 const Reservation = mongoose.model('Reservation', ReservationSchema);
 const GiftCard = mongoose.model('GiftCard', GiftCardSchema);
 const Cart = mongoose.model('Cart', CartSchema);
+const MenuItem = mongoose.model('MenuItem', new mongoose.Schema({ id: { type: Number, unique: true, required: true }, name: { type: String, required: true, trim: true }, price: { type: Number, required: true, min: 0 }, category: { type: String, required: true }, description: { type: String, default: '' }, image: { type: String, default: '/images/8pcs wings.jpg' }, active: { type: Boolean, default: true } }, { timestamps: true }));
 
 const wingFlavors = new Set([
   'Salted Egg', 'Garlic Parmesan', '4 Spice', 'Picante Parmigiano', 'Tex Mex', 'Buffalo',
@@ -183,9 +185,13 @@ const menuCatalog = {
   '915': { name: 'Bottomless Juice Upgrade', variants: { 'House Blend Iced Tea': 40, 'Cucumber Lemonade': 40 } }
 };
 
-const normalizeCartItem = (input) => {
+const normalizeCartItem = async (input) => {
   const itemId = String(input?.itemId ?? '');
-  const product = menuCatalog[itemId];
+  let product = menuCatalog[itemId];
+  if (!product) {
+    const savedItem = await MenuItem.findOne({ id: Number(itemId), active: true }).lean();
+    if (savedItem) product = { name: savedItem.name, basePrice: savedItem.price };
+  }
   const quantity = Number(input?.quantity);
   if (!product || !Number.isInteger(quantity) || quantity < 1 || quantity > 50) {
     throw new Error('Invalid menu item or quantity');
@@ -217,16 +223,6 @@ const authenticate = async (req, res, next) => {
     if (!token) throw new Error('No token provided');
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    if (decoded._id === 'admin' && decoded.isAdmin === true) {
-      req.user = {
-        _id: 'admin',
-        name: 'Admin',
-        email: process.env.ADMIN_EMAIL,
-        isAdmin: true
-      };
-      return next();
-    }
 
     const user = await User.findById(decoded._id);
     if (!user) throw new Error('User not found');
@@ -265,6 +261,8 @@ app.post('/api/register', authLimiter, async (req, res) => {
   try {
     const { name, email, password } = req.body;
     if (typeof name !== 'string' || !name.trim() || typeof email !== 'string' || !email.trim() || typeof password !== 'string') throw new Error('All fields are required');
+    if (name.trim().length < 2 || name.trim().length > 100) throw new Error('Name must be between 2 and 100 characters');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) throw new Error('Enter a valid email address');
     if (password.length < 8 || Buffer.byteLength(password, 'utf8') > 72) throw new Error('Password must be 8 to 72 bytes');
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -295,25 +293,8 @@ app.post('/api/login', authLimiter, async (req, res) => {
     if (typeof email !== 'string' || typeof password !== 'string' || !email || !password) {
       return res.status(400).json({ success: false, message: 'Email and password required' });
     }
-
-    const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
-    const adminPassword = process.env.ADMIN_PASSWORD;
-    if (adminEmail && adminPassword && email.trim().toLowerCase() === adminEmail) {
-      if (password === adminPassword) {
-        const token = jwt.sign(
-          { _id: 'admin', isAdmin: true },
-          process.env.JWT_SECRET,
-          { expiresIn: '7d' }
-        );
-
-        return res.json({
-          success: true,
-          token: token,
-          user: { _id: 'admin', name: 'Admin', email: adminEmail, isAdmin: true }
-        });
-      } else {
-        return res.status(400).json({ success: false, message: 'Invalid credentials' });
-      }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      return res.status(400).json({ success: false, message: 'Enter a valid email address' });
     }
 
     const user = await User.findOne({ email: email.trim().toLowerCase() });
@@ -323,14 +304,14 @@ app.post('/api/login', authLimiter, async (req, res) => {
     if (!isMatch) return res.status(400).json({ success: false, message: 'Invalid credentials' });
 
     const token = jwt.sign(
-      { _id: user._id, isAdmin: false },
+      { _id: user._id.toString() },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
 
     return res.json({
       success: true,
-      user: { _id: user._id, name: user.name, email: user.email, isAdmin: false },
+      user: { _id: user._id, name: user.name, email: user.email, isAdmin: user.isAdmin === true },
       token: token
     });
     
@@ -351,7 +332,7 @@ app.post('/api/orders', authenticate, async (req, res) => {
         message: 'Your cart is empty or the payment method is invalid.'
       });
     }
-    const items = cart.items.map(item => normalizeCartItem({ ...item.toObject(), quantity: item.quantity }));
+    const items = await Promise.all(cart.items.map(item => normalizeCartItem({ ...item.toObject(), quantity: item.quantity })));
     const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
     const total = Math.round(subtotal * 1.12 * 100) / 100;
 
@@ -539,7 +520,7 @@ app.get('/api/cart', authenticate, async (req, res) => {
 
 app.post('/api/cart/add', authenticate, async (req, res) => {
   try {
-    const safeItem = normalizeCartItem(req.body);
+    const safeItem = await normalizeCartItem(req.body);
     
     let cart = await Cart.findOne({ user: req.user._id });
     
@@ -640,49 +621,50 @@ app.delete('/api/cart/clear', authenticate, async (req, res) => {
 
 console.log('Current environment:', process.env.NODE_ENV);
 
-const isAdmin = (req, res, next) => {
+const isAdmin = (req, res, next) => authenticate(req, res, () => {
+  if (req.user?.isAdmin === true) return next();
+  return res.status(403).json({ success: false, message: 'Admin privileges required' });
+});
+
+app.get('/api/menu', async (req, res) => {
+  try { const items = await MenuItem.find({ active: true }).sort({ createdAt: 1 }).lean(); res.json({ success: true, items }); }
+  catch (err) { res.status(500).json({ success: false, message: 'Failed to load menu items' }); }
+});
+
+app.post('/api/admin/menu', isAdmin, async (req, res) => {
   try {
-    const token = req.header('Authorization')?.replace('Bearer ', '');
-    if (!token) throw new Error('Authentication required');
+    const { name, price, category, description = '', image = '/images/8pcs wings.jpg' } = req.body;
+    const cleanName = typeof name === 'string' ? name.trim() : '';
+    const cleanDescription = typeof description === 'string' ? description.trim() : '';
+    const cleanCategory = typeof category === 'string' ? category : '';
+    const validCategories = ['CHICKENWINGS', 'UNLIMITEDWINGS', 'DIPS', 'ADDONS', 'DRINKS'];
+    const numericPrice = Number(price);
+    if (cleanName.length < 2 || cleanName.length > 80) return res.status(400).json({ success: false, message: 'Name must be 2–80 characters.' });
+    if (!Number.isFinite(numericPrice) || numericPrice < 1 || numericPrice > 100000) return res.status(400).json({ success: false, message: 'Price must be between ₱1 and ₱100,000.' });
+    if (!validCategories.includes(cleanCategory)) return res.status(400).json({ success: false, message: 'Choose a valid category.' });
+    if (cleanDescription.length > 300) return res.status(400).json({ success: false, message: 'Description must be 300 characters or fewer.' });
+    const item = await MenuItem.create({ id: Date.now(), name: cleanName, price: numericPrice, category: cleanCategory, description: cleanDescription, image: typeof image === 'string' && image.startsWith('/') ? image.slice(0, 200) : '/images/8pcs wings.jpg' });
+    res.status(201).json({ success: true, item });
+  } catch (err) { res.status(500).json({ success: false, message: 'Could not save menu item.' }); }
+});
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    if (decoded.isAdmin !== true || decoded._id !== 'admin') {
-      return res.status(403).json({ success: false, message: 'Admin privileges required' });
-    }
-
-    req.user = decoded;
-    next();
-  } catch (err) {
-    res.status(403).json({ success: false, message: 'Authentication failed' });
-  }
-};
+app.delete('/api/admin/menu/:id', isAdmin, async (req, res) => {
+  try { const item = await MenuItem.findOneAndUpdate({ id: Number(req.params.id) }, { active: false }, { new: true }); if (!item) return res.status(404).json({ success: false, message: 'Menu item not found.' }); res.json({ success: true }); }
+  catch (err) { res.status(500).json({ success: false, message: 'Could not remove menu item.' }); }
+});
 
 app.post('/api/admin/login', authLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
-    if (!email || !password) throw new Error('Email and password required');
-
-    const ADMIN_EMAIL = process.env.ADMIN_EMAIL?.trim().toLowerCase();
-    const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
-
-    if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
-      return res.status(503).json({ success: false, message: 'Admin login is not configured' });
+    if (typeof email !== 'string' || typeof password !== 'string' || !email.trim() || !password) {
+      return res.status(400).json({ success: false, message: 'Email and password required' });
     }
-    if (typeof email !== 'string' || typeof password !== 'string' || email.trim().toLowerCase() !== ADMIN_EMAIL || password !== ADMIN_PASSWORD) {
-      throw new Error('Invalid admin credentials');
+    const user = await User.findOne({ email: email.trim().toLowerCase() });
+    if (!user || user.isAdmin !== true || !(await bcrypt.compare(password, user.password))) {
+      return res.status(401).json({ success: false, message: 'Invalid admin credentials' });
     }
-
-    const token = jwt.sign(
-      { _id: 'admin', isAdmin: true },
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' }
-    );
-
-    res.json({
-      success: true,
-      token,
-      user: { _id: 'admin', name: 'Admin', email: ADMIN_EMAIL, isAdmin: true }
-    });
+    const token = jwt.sign({ _id: user._id.toString() }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    return res.json({ success: true, token, user: { _id: user._id, name: user.name, email: user.email, isAdmin: true } });
   } catch (err) {
     res.status(401).json({ success: false, message: err.message });
   }
