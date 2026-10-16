@@ -265,6 +265,13 @@ const claimTable = async ({ branch, partySize, reservationId, startsAt, endsAt, 
   }, { new: true, sort: { capacity: 1, number: 1 } });
 };
 
+const findAvailableTable = ({ branch, partySize, startsAt, endsAt }) => Table.findOne({
+  branch,
+  status: 'AVAILABLE',
+  capacity: { $gte: partySize },
+  bookings: { $not: { $elemMatch: { startsAt: { $lt: endsAt }, endsAt: { $gt: startsAt } } } }
+}).select('_id').lean();
+
 const releaseTableHold = async (tableId, reservationId) => {
   if (tableId) await Table.updateOne({ _id: tableId }, { $pull: { bookings: { reservation: reservationId } } });
 };
@@ -517,10 +524,7 @@ app.get('/api/reservations/availability', async (req, res) => {
     }
     if (time) {
       const { start, end } = getReservationWindow(date, time);
-      const table = await Table.findOne({
-        branch, status: 'AVAILABLE', capacity: { $gte: Number(partySize) },
-        bookings: { $not: { $elemMatch: { startsAt: { $lt: end }, endsAt: { $gt: start } } } }
-      }).select('_id').lean();
+      const table = await findAvailableTable({ branch, partySize: Number(partySize), startsAt: start, endsAt: end });
       return res.json({ success: true, available: Boolean(table) });
     }
     const availableTimes = [];
@@ -528,10 +532,7 @@ app.get('/api/reservations/availability', async (req, res) => {
       let window;
       try { window = getReservationWindow(date, time); } catch { continue; }
       const { start, end } = window;
-      const table = await Table.findOne({
-        branch, status: 'AVAILABLE', capacity: { $gte: Number(partySize) },
-        bookings: { $not: { $elemMatch: { startsAt: { $lt: end }, endsAt: { $gt: start } } } }
-      }).select('_id').lean();
+      const table = await findAvailableTable({ branch, partySize: Number(partySize), startsAt: start, endsAt: end });
       if (table) availableTimes.push(time);
     }
     res.json({ success: true, availableTimes });
