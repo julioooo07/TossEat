@@ -1,0 +1,4 @@
+import React from 'react';
+import { Link } from 'react-router-dom';
+import './OrderType.css';
+export default function OrderType(){return <main className="order-type-page"><h1>How would you like to order?</h1><p>Choose a dining option to get started.</p><div className="order-type-cards"><Link to="/dine-in" className="order-type-card"><span>🍽️</span><h2>Dine-In</h2><p>Reserve a table and order for your visit.</p><strong>Reserve a table →</strong></Link><Link to="/menu" className="order-type-card"><span>🛍️</span><h2>Online Ordering</h2><p>Browse the menu and place an online order.</p><strong>Order online →</strong></Link></div></main>}

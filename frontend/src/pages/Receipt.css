@@ -1,186 +1,57 @@
-.receipt-container {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 2rem;
-  background: var(--bg);
-  color: black !important;
-}
+.receipt-container { max-width: 800px; margin: 0 auto; padding: 2rem; background: transparent; color: black !important; animation: tossFadeUp .55s var(--ease) backwards; }
 
+/* paper look — keeps the black text readable */
 .receipt-content {
-  background: var(--card);
   padding: 2rem;
-  border-radius: 10px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  background: #fff;
   border-left: 4px solid var(--primary-color);
+  border-radius: 14px;
+  box-shadow: var(--shadow-lg);
   color: black !important;
 }
 
-.receipt-header {
-  text-align: center;
-  margin-bottom: 2rem;
-  border-bottom: 3px solid var(--primary-color);
-  padding-bottom: 1rem;
-  color: black !important;
-}
+.receipt-header { text-align: center; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 3px solid var(--primary-color); color: black !important; }
+.receipt-header h1 { margin-bottom: .5rem; color: black !important; }
+.receipt-info { display: flex; justify-content: space-between; margin-top: 1rem; font-size: .9rem; color: black !important; }
 
-.receipt-header h1 {
-  color: black !important; /* Previously var(--primary-color) */
-  margin-bottom: 0.5rem;
-}
+.receipt-section { margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid #e5e7eb; color: black !important; }
+.receipt-section h3 { margin-bottom: 1rem; color: black !important; }
+.receipt-items { margin-bottom: 1rem; }
+.receipt-item { margin-bottom: 1rem; color: black !important; }
+.item-main { display: flex; justify-content: space-between; margin-bottom: .25rem; color: black !important; }
+.receipt-container .item-details { font-size: .9rem; color: black !important; }
 
-.receipt-info {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 1rem;
-  font-size: 0.9rem;
-  color: black !important;
-}
+.receipt-summary, .payment-info, .delivery-info { display: flex; flex-direction: column; gap: .5rem; color: black !important; }
+.summary-row, .info-row { display: flex; justify-content: space-between; color: black !important; }
+.receipt-container .summary-row.total { margin-top: .5rem; padding-top: .5rem; border-top: 1px solid; font-weight: 700; font-size: 1.1rem; color: black !important; }
 
-.receipt-section {
-  margin-bottom: 2rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid var(--gray-light);
-  color: black !important;
-}
+.receipt-footer { text-align: center; margin-top: 2rem; padding-top: 1rem; border-top: 2px solid var(--primary-color); color: black !important; }
+.receipt-footer p { margin-bottom: .5rem; font-size: 1.2rem; font-weight: 700; color: black !important; }
 
-.receipt-section h3 {
-  color: black !important;
-  margin-bottom: 1rem;
-}
+.receipt-actions { display: flex; gap: 1rem; justify-content: center; margin-top: 2rem; }
 
-.receipt-items {
-  margin-bottom: 1rem;
-}
-
-.receipt-item {
-  margin-bottom: 1rem;
-  color: black !important;
-}
-
-.item-main {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 0.25rem;
-  color: black !important;
-}
-
-.item-details {
-  color: black !important;
-  font-size: 0.9rem;
-}
-
-.receipt-summary, .payment-info, .delivery-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  color: black !important;
-}
-
-.summary-row, .info-row {
-  display: flex;
-  justify-content: space-between;
-  color: black !important;
-}
-
-.summary-row.total {
-  font-weight: bold;
-  font-size: 1.1rem;
-  border-top: 1px solid;
-  padding-top: 0.5rem;
-  margin-top: 0.5rem;
-  color: black !important;
-}
-
-.receipt-footer {
-  text-align: center;
-  margin-top: 2rem;
-  padding-top: 1rem;
-  border-top: 2px solid var(--primary-color);
-  color: black !important;
-}
-
-.receipt-footer p {
-  font-size: 1.2rem;
-  font-weight: bold;
-  color: black !important;
-  margin-bottom: 0.5rem;
-}
-
-.receipt-actions {
-  display: flex;
-  gap: 1rem;
-  justify-content: center;
-  margin-top: 2rem;
-}
-
-.status {
-  padding: 0.25rem 0.75rem;
-  border-radius: 20px;
-  font-size: 0.8rem;
-  font-weight: bold;
-}
-
-/* Fix status label text */
-.status-pending   { background: #fff3cd; color: black !important; }
-.status-confirmed { background: #d1ecf1; color: black !important; }
-.status-completed { background: #d4edda; color: black !important; }
-.status-cancelled { background: #f8d7da; color: black !important; }
+/* status chips on paper */
+.receipt-container .status { border: 1px solid rgba(0, 0, 0, .08); }
+.receipt-container .status-pending { background: #fff3cd; color: black !important; }
+.receipt-container .status-confirmed { background: #d1ecf1; color: black !important; }
+.receipt-container .status-completed { background: #d4edda; color: black !important; }
+.receipt-container .status-cancelled { background: #f8d7da; color: black !important; }
 
 @media print {
-  .receipt-actions {
-    display: none !important;
-  }
-  
-  .receipt-content {
-    box-shadow: none;
-    padding: 0;
-    background: white;
-    color: black !important;
-  }
+  .receipt-actions { display: none !important; }
+  .receipt-content { box-shadow: none; padding: 0; background: white; color: black !important; }
 }
 
 @media (max-width: 768px) {
-  .receipt-info {
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-  
-  .receipt-actions {
-    flex-direction: column;
-  }
-  
-  .receipt-content {
-    padding: 1rem;
-  }
+  .receipt-info { flex-direction: column; gap: .5rem; }
+  .receipt-actions { flex-direction: column; }
+  .receipt-content { padding: 1rem; }
 }
 
 @media print {
-  nav, 
-  .navbar, 
-  .navigation,
-  header {
-    display: none !important;
-  }
-
-  /* Only show the receipt */
-  .receipt-container {
-    margin: 0;
-    padding: 0;
-  }
-
-  body * {
-    visibility: hidden;
-  }
-
-  .receipt-container, 
-  .receipt-container * {
-    visibility: visible;
-  }
-
-  .receipt-container {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-  }
+  nav, .navbar, .navigation, header { display: none !important; }
+  .receipt-container { margin: 0; padding: 0; }
+  body * { visibility: hidden; }
+  .receipt-container, .receipt-container * { visibility: visible; }
+  .receipt-container { position: absolute; left: 0; top: 0; width: 100%; }
 }

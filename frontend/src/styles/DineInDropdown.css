@@ -1,0 +1,19 @@
+.dinein select {
+  background-color: #202127;
+  color: #f5f5f5;
+  color-scheme: dark;
+}
+
+.dinein select option {
+  background-color: #202127;
+  color: #f5f5f5;
+}
+
+.dinein select option:checked {
+  background-color: #a11616;
+  color: #fff;
+}
+
+.dinein input[type="time"] {
+  color-scheme: dark;
+}

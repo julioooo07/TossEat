@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import './Dashboard.css';
+import ReservationHistory from '../components/ReservationHistory';
 
 const Dashboard = () => {
   const { user, api } = useAuth();
@@ -460,6 +461,7 @@ const Dashboard = () => {
         </div>
       </div>
 
+      <ReservationHistory />
       <div className="activity-section">
         <div className="recent-orders">
           <div className="section-header">

@@ -1,0 +1,62 @@
+.reservation-history { margin: 2rem 0; color: var(--text-dark); animation: tossFadeUp .55s var(--ease) backwards; }
+.rh-head { display: flex; justify-content: space-between; align-items: center; }
+.rh-list { display: grid; gap: 1rem; }
+
+.rh-card {
+  padding: 1.1rem;
+  background: var(--card);
+  background-image: var(--sheen);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--ring), var(--shadow-sm);
+  transition: var(--t-card);
+  animation: tossFadeUp .5s var(--ease) backwards;
+}
+
+.rh-card:hover { box-shadow: var(--ring-hover), var(--shadow-md); }
+.rh-card > header { display: flex; justify-content: space-between; gap: 1rem; }
+.rh-card header span { display: block; color: var(--text-light); margin-top: .25rem; }
+
+.rh-badge {
+  padding: .3rem .65rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .06);
+  font-size: .75rem;
+  text-transform: capitalize !important;
+}
+
+.rh-card ul { margin: .5rem 0; padding-left: 1.25rem; }
+.rh-card li small { color: var(--text-light); margin-left: .35rem; }
+.rh-meta { display: flex; flex-wrap: wrap; gap: 1rem; padding: .6rem 0; }
+
+.rh-card button, .rh-head button {
+  width: auto;
+  margin: .25rem;
+  padding: .55rem .9rem;
+  border: 0;
+  border-radius: 8px;
+  background: var(--primary-color);
+  color: #fff;
+  cursor: pointer;
+}
+
+.rh-card button.rh-cancel { background: rgba(248, 113, 113, .14); color: #fca5a5; border: 1px solid rgba(248, 113, 113, .3); }
+.rh-error { color: #fca5a5; }
+.rh-review { padding: .75rem; background: rgba(74, 222, 128, .07); border: 1px solid rgba(74, 222, 128, .2); border-radius: var(--radius-md); }
+.rh-review-form { display: grid; gap: .7rem; margin-top: 1rem; }
+.rh-review-form label { display: grid; gap: .35rem; }
+
+.rh-review-form textarea, .rh-review-form select {
+  padding: .65rem .8rem;
+  background: rgba(255, 255, 255, .035);
+  color: var(--text-dark);
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  transition: border-color .2s var(--ease), box-shadow .2s var(--ease);
+}
+
+.rh-review-form textarea:focus, .rh-review-form select:focus { outline: none; border-color: var(--primary-text); box-shadow: 0 0 0 3px rgba(161, 22, 22, .3); }
+
+.rh-pagination { display: flex; justify-content: center; align-items: center; gap: 1rem; margin: 1rem 0; }
+.rh-pagination button { width: auto; padding: .5rem .9rem; border: 0; border-radius: 8px; background: var(--primary-color); color: #fff; }
+.rh-pagination button:disabled { opacity: .45; }

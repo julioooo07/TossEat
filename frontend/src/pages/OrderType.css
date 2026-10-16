@@ -1,0 +1,20 @@
+.order-type-page { max-width: 1000px; margin: 4rem auto; padding: 2rem; color: var(--text-dark); text-align: center; animation: tossFadeUp .55s var(--ease) backwards; }
+.order-type-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.5rem; margin-top: 2.5rem; }
+
+.order-type-card {
+  display: block;
+  padding: 2rem;
+  background: var(--card);
+  background-image: var(--sheen);
+  border: 1px solid var(--border-subtle);
+  border-radius: 18px;
+  box-shadow: var(--shadow-sm);
+  color: var(--text-dark);
+  text-align: left;
+  text-decoration: none;
+  transition: var(--t-card);
+}
+
+.order-type-card:hover { transform: translateY(-3px); border-color: var(--primary-color); box-shadow: 0 0 0 1px rgba(161, 22, 22, .5), var(--shadow-md); }
+.order-type-card > span { font-size: 2.5rem; filter: drop-shadow(0 4px 12px rgba(0, 0, 0, .35)); }
+.order-type-card strong { color: var(--primary-text); }

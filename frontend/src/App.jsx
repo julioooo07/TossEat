@@ -21,8 +21,11 @@ import GiftCards from './pages/GiftCards';
 import Admin from './pages/Admin';
 import Cart from './pages/Cart';
 import Locations from './pages/Locations';
+import OrderType from './pages/OrderType';
+import DineInReservation from './pages/DineInReservation';
 
 import './App.css';
+import './DineInDropdown.css';
 
 function App() {
   return (
@@ -45,6 +48,8 @@ function App() {
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
                 <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/order-type" element={<OrderType />} />
+                <Route path="/dine-in" element={<DineInReservation />} />
                 <Route path="/orders" element={<Orders />} />
                 <Route path="/reservations" element={<Reservations />} />
                 <Route path="/giftcards" element={<GiftCards />} />

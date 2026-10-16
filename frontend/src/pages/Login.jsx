@@ -56,17 +56,7 @@ const Login = () => {
           return;
         }
         
-        // Check if first login (no preferences stored)
-        const hasPreferences = localStorage.getItem(`preferences_completed_${userId}`);
-        
-        if (!hasPreferences) {
-          // First login - start chatbot
-          navigate('/menu'); // Navigate to menu first
-          // The chatbot will be triggered by FirstLoginHandler
-        } else {
-          // Not first login - go to the user dashboard
-          navigate('/dashboard');
-        }
+        navigate('/order-type');
       } else {
         setError(result?.message || 'Login failed. Please check your credentials.');
       }

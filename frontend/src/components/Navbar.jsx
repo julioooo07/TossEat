@@ -26,6 +26,7 @@ const Navbar = () => {
       <li className="nav-item"><Link to="/" className="nav-link">Home</Link></li>
       <li className="nav-item"><Link to="/menu" className="nav-link">Menu</Link></li>
       <li className="nav-item"><Link to="/locations" className="nav-link">Locations</Link></li>
+      {user && !user.isAdmin && <li className="nav-item"><Link to="/dashboard" className="nav-link">Dashboard</Link></li>}
       {user && <>
         <li className="nav-item nav-cart-item"><Link to="/cart" className="nav-link nav-icon-link" aria-label={cartItemCount ? `Cart, ${cartItemCount} items` : 'Cart'} title="Cart">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.1 10.2a2 2 0 002 1.6h8.8a2 2 0 001.9-1.4L22 8H6"/><circle cx="10" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/></svg>

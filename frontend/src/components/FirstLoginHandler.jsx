@@ -1,14 +1,16 @@
 import { useEffect, useRef } from 'react';
 import { useChatbot } from '../context/ChatbotContext';
 import { useAuth } from '../context/AuthContext';
+import { useLocation } from 'react-router-dom';
 
 const FirstLoginHandler = () => {
   const { startChatbot, chatbotOpen } = useChatbot();
   const { user } = useAuth();
+  const location = useLocation();
   const hasHandledFirstLogin = useRef(false); // ADD THIS REF
 
   useEffect(() => {
-    if (!user || user.isAdmin || hasHandledFirstLogin.current) return;
+    if (!user || user.isAdmin || hasHandledFirstLogin.current || ['/order-type', '/dine-in'].includes(location.pathname)) return;
     
     const userId = user.id || user.email || user._id;
     
@@ -47,7 +49,7 @@ const FirstLoginHandler = () => {
     }
     
     hasHandledFirstLogin.current = true;
-  }, [user, chatbotOpen, startChatbot]);
+  }, [user, chatbotOpen, startChatbot, location.pathname]);
 
   return null;
 };

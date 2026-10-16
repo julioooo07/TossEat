@@ -1,9 +1,4 @@
-.locations-container {
-  min-height: 100vh;
-  background: var(--bg) !important;
-  font-family: 'Montserrat', sans-serif;
-  color: var(--text-dark);
-}
+.locations-container { min-height: 100vh; background: var(--bg) !important; font-family: 'Montserrat', sans-serif; color: var(--text-dark); }
 
 .page-header {
   position: relative;
@@ -14,325 +9,84 @@
   min-height: 300px;
   padding: 2rem;
   overflow: hidden;
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--card) 100%);
+  background: linear-gradient(135deg, rgba(161, 22, 22, .5) 0%, var(--card) 72%);
+  border-bottom: 1px solid var(--border-subtle);
   border-radius: 0 !important;
 }
 
-.page-header-content {
-  position: relative;
-  z-index: 1;
-  max-width: 800px;
-  color: var(--text-dark);
-}
+.page-header-content { position: relative; z-index: 1; max-width: 800px; color: var(--text-dark); animation: tossFadeUp .55s var(--ease) backwards; }
+.page-header-content h1 { margin-bottom: 1rem; font-size: clamp(1.8rem, 4vw, 2.5rem); font-weight: 700; letter-spacing: -.02em; color: var(--text-dark); }
+.page-header-content p { margin-bottom: 1rem; font-size: 1.15rem; color: var(--text-light); }
 
-.page-header-content h1 {
-  margin-bottom: 1rem;
-  font-size: 2.5rem;
-  font-weight: 700;
-  color: var(--text-dark);
-}
+.logged-in-info { display: inline-block; padding: .5rem 1rem; background: rgba(255, 255, 255, .1); border: 1px solid var(--border-subtle); border-left: 1px solid var(--border-subtle); border-radius: 999px; font-size: .9rem; color: var(--text-dark); }
 
-.page-header-content p {
-  margin-bottom: 1rem;
-  font-size: 1.2rem;
-  color: var(--text-light);
-}
+.locations-content { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; max-width: 1400px; margin: 0 auto; padding: 2rem; border-radius: 0 !important; background: var(--bg); animation: tossFadeUp .55s var(--ease) backwards; }
 
-.logged-in-info {
-  background: rgba(255, 255, 255, 0.2);
-  padding: 0.5rem 1rem;
-  border-radius: 20px;
-  display: inline-block;
-  font-size: 0.9rem;
-  color: var(--text-dark);
-}
+.branches-list h2, .map-section h2 { margin-bottom: 1.5rem; text-align: center; font-weight: 700; font-size: 1.7rem; letter-spacing: -.02em; color: var(--text-dark); }
 
-.locations-content {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 2rem;
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 2rem;
-  border-radius: 0 !important;
-  background: var(--bg);
-}
-
-.branches-list h2, 
-.map-section h2 {
-  color: var(--text-dark);
-  margin-bottom: 1.5rem;
-  text-align: center;
-  font-family: 'Montserrat', sans-serif;
-  font-weight: 700;
-  font-size: 1.8rem;
-}
-
-.branches-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
+.branches-grid { display: flex; flex-direction: column; gap: 1.5rem; }
 
 .branch-card {
-  background: var(--card);
-  border-radius: 15px;
   padding: 1.5rem;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-  border: 3px solid transparent;
-  color: var(--text-dark);
-}
-
-.branch-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 8px 25px rgba(0,0,0,0.4);
-}
-
-.branch-card.active {
-  border-color: var(--primary-color);
-  background: linear-gradient(135deg, var(--card) 0%, var(--card-2) 100%);
-}
-
-.branch-image {
-  width: 100%;
-  height: 150px;
-  border-radius: 10px;
-  overflow: hidden;
-  margin-bottom: 1rem;
-  position: relative;
-}
-
-.branch-image::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.4);
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.branch-card:hover .branch-image::after {
-  opacity: 1;
-}
-
-.branch-image img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.3s ease;
-}
-
-.branch-card:hover .branch-image img {
-  transform: scale(1.1);
-}
-
-.branch-info h3 {
-  color: var(--primary-color);
-  margin-bottom: 0.5rem;
-  font-family: 'Montserrat', sans-serif;
-  font-weight: 700;
-  font-size: 1.3rem;
-}
-
-.branch-address {
-  color: var(--text-dark);
-  margin-bottom: 0.5rem;
-  font-weight: 500;
-}
-
-.branch-phone, 
-.branch-hours {
-  color: var(--text-light);
-  margin-bottom: 0.25rem;
-  font-size: 0.9rem;
-}
-
-.branch-hours p {
-  margin: 0.25rem 0 0;
-}
-
-.directions-btn {
-  width: 100%;
-  margin-top: 1rem;
-  padding: 0.75rem;
-  font-size: 0.9rem;
-  font-weight: 600;
-  background: var(--primary-color);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.map-section {
-  display: flex;
-  flex-direction: column;
-}
-
-.map-container {
   background: var(--card);
-  border-radius: 15px;
-  overflow: hidden;
-  box-shadow: 0 8px 25px rgba(0,0,0,0.3);
-}
-
-.selected-branch-info {
-  padding: 1.5rem;
-  background: var(--card-2);
+  background-image: var(--sheen);
+  border: 1px solid var(--border-subtle);
+  border-radius: 18px;
+  box-shadow: var(--shadow-sm);
   color: var(--text-dark);
+  cursor: pointer;
+  transition: all .3s cubic-bezier(.4, 0, .2, 1);
+  animation: tossFadeUp .5s var(--ease) backwards;
 }
 
-.selected-branch-info h3 {
-  color: var(--primary-color);
-  margin-bottom: 1rem;
-  font-family: 'Montserrat', sans-serif;
-  font-weight: 700;
-}
+.branch-card:hover { transform: translateY(-2px); box-shadow: var(--ring-hover), var(--shadow-md); }
+.branch-card.active { border-color: var(--primary-color); background: linear-gradient(135deg, var(--card) 0%, var(--card-2) 100%); box-shadow: 0 0 0 1px var(--primary-color), 0 0 32px rgba(161, 22, 22, .25); }
+.branch-card:focus { outline: 2px solid var(--primary-text); outline-offset: 2px; }
 
-.selected-branch-info p {
-  margin-bottom: 0.5rem;
-  color: var(--text-dark);
-}
+.branch-image { position: relative; width: 100%; height: 150px; margin-bottom: 1rem; border-radius: var(--radius-md); overflow: hidden; }
+.branch-image::after { content: ''; position: absolute; inset: 0; background: rgba(0, 0, 0, .4); opacity: 0; transition: opacity .3s ease; }
+.branch-card:hover .branch-image::after { opacity: 1; }
+.branch-image img { width: 100%; height: 100%; object-fit: cover; transition: transform .4s var(--ease); }
+.branch-card:hover .branch-image img { transform: scale(1.06); }
 
-.selected-branch-info strong {
-  color: var(--primary-color);
-}
+.branch-info h3 { margin-bottom: .5rem; font-weight: 700; font-size: 1.25rem; color: var(--primary-text); }
+.branch-address { margin-bottom: .5rem; font-weight: 500; color: var(--text-dark); }
+.branch-phone, .branch-hours { margin-bottom: .25rem; font-size: .9rem; color: var(--text-light); }
+.branch-hours p { margin: .25rem 0 0; }
 
-.leaflet-container {
-  border-radius: 15px 15px 0 0;
-  font-family: 'Montserrat', sans-serif;
-}
+.directions-btn { width: 100%; margin-top: 1rem; padding: .75rem; background: var(--primary-color); color: #fff; border: none; border-radius: 10px; font-size: .9rem; font-weight: 600; cursor: pointer; transition: all .3s var(--ease); }
+.directions-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 16px var(--primary-glow); filter: brightness(1.1); }
+.directions-btn:focus { outline: 2px solid var(--primary-text); outline-offset: 2px; }
 
-.leaflet-popup-content {
-  font-family: 'Montserrat', sans-serif;
-  color: var(--text-dark);
-}
+.map-section { display: flex; flex-direction: column; }
+.map-container { overflow: hidden; background: var(--card); border: 1px solid var(--border-subtle); border-radius: 18px; box-shadow: var(--shadow-md); }
+.map-container:empty::before { content: 'Loading map...'; display: flex; align-items: center; justify-content: center; height: 400px; color: var(--text-light); font-style: italic; background: var(--card); }
 
-.leaflet-popup-content-wrapper {
-  border-radius: 8px;
-  background: var(--card);
-  color: var(--text-dark);
-}
+.selected-branch-info { padding: 1.5rem; background: var(--card-2); color: var(--text-dark); }
+.selected-branch-info h3 { margin-bottom: 1rem; font-weight: 700; color: var(--primary-text); }
+.selected-branch-info p { margin-bottom: .5rem; color: var(--text-dark); }
+.selected-branch-info strong { color: var(--primary-text); }
+
+.leaflet-container { border-radius: 18px 18px 0 0; font-family: 'Montserrat', sans-serif; }
+.leaflet-popup-content { font-family: 'Montserrat', sans-serif; color: var(--text-dark); }
+.leaflet-popup-content-wrapper { border-radius: var(--radius-md); background: var(--card); color: var(--text-dark); }
 
 @media (max-width: 968px) {
-  .locations-content {
-    grid-template-columns: 1fr;
-    gap: 2rem;
-  }
-  
-  .branches-grid {
-    flex-direction: row;
-    overflow-x: auto;
-    padding-bottom: 1rem;
-  }
-  
-  .branch-card {
-    min-width: 300px;
-    flex-shrink: 0;
-  }
+  .locations-content { grid-template-columns: 1fr; gap: 2rem; }
+  .branches-grid { flex-direction: row; overflow-x: auto; padding-bottom: 1rem; }
+  .branch-card { min-width: 300px; flex-shrink: 0; }
 }
 
 @media (max-width: 768px) {
-  .page-header-content h1 {
-    font-size: 2rem;
-  }
-  
-  .page-header-content p {
-    font-size: 1rem;
-  }
-  
-  .locations-content {
-    padding: 1rem;
-  }
-  
-  .branches-list h2, 
-  .map-section h2 {
-    font-size: 1.5rem;
-  }
+  .page-header-content h1 { font-size: 2rem; }
+  .page-header-content p { font-size: 1rem; }
+  .locations-content { padding: 1rem; }
+  .branches-list h2, .map-section h2 { font-size: 1.5rem; }
 }
 
 @media (max-width: 480px) {
-  .page-header {
-    min-height: 250px;
-    padding: 1.5rem;
-  }
-  
-  .page-header-content h1 {
-    font-size: 1.8rem;
-  }
-  
-  .locations-content {
-    padding: 1rem;
-  }
-  
-  .branch-card {
-    min-width: 280px;
-    padding: 1rem;
-  }
-  
-  .branches-grid {
-    flex-direction: column;
-  }
-  
-  .branch-card {
-    min-width: auto;
-  }
-}
-
-.directions-btn {
-  transition: all 0.3s ease;
-}
-
-.directions-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  background: var(--primary-color);
-  opacity: 0.9;
-}
-
-.branch-card {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.branch-card.active {
-  animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-  0% {
-    box-shadow: 0 0 0 0 rgba(161, 22, 22, 0.4);
-  }
-  70% {
-    box-shadow: 0 0 0 10px rgba(161, 22, 22, 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(161, 22, 22, 0);
-  }
-}
-
-.map-container:empty::before {
-  content: 'Loading map...';
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 400px;
-  color: var(--text-light);
-  font-style: italic;
-  background: var(--card);
-}
-
-.branch-card:focus {
-  outline: 2px solid var(--primary-color);
-  outline-offset: 2px;
-}
-
-.directions-btn:focus {
-  outline: 2px solid var(--primary-color);
-  outline-offset: 2px;
+  .page-header { min-height: 250px; padding: 1.5rem; }
+  .page-header-content h1 { font-size: 1.8rem; }
+  .branches-grid { flex-direction: column; }
+  .branch-card { min-width: auto; padding: 1rem; }
 }
