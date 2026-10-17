@@ -181,7 +181,6 @@ button:disabled {
 .btn.danger:hover { background: #d9463a; }
 
 .page-header .btn-primary,
-.giftcards-container .btn-primary,
 .reservations-container .btn-primary {
   width: auto;
   min-width: 200px;
@@ -191,7 +190,7 @@ button:disabled {
 
 .page-header .btn-primary { display: inline-block; margin: .5rem; }
 
-.giftcard-btn, .reservation-btn { width: auto; min-width: 200px; padding: .75rem 1.5rem; }
+.reservation-btn { width: auto; min-width: 200px; padding: .75rem 1.5rem; }
 
 .remove-btn, .clear-btn, .cancel-btn, .cancel-reservation-btn { border-radius: 8px; }
 
@@ -274,7 +273,7 @@ input[type=checkbox], input[type=radio] { accent-color: var(--primary-color); }
 }
 
 /* ==========================================================================
-   Feedback — messages, loading, empty states
+   Feedback â€” messages, loading, empty states
    ========================================================================== */
 .success-message, .error-message {
   padding: .8rem 1rem;
@@ -319,7 +318,7 @@ input[type=checkbox], input[type=radio] { accent-color: var(--primary-color); }
 
 .loading-overlay p { color: var(--primary-text); font-weight: 600; }
 
-.no-orders, .no-reservations, .no-giftcards, .cool-empty-state {
+.no-orders, .no-reservations, .cool-empty-state {
   text-align: center;
   padding: 3rem 1.5rem;
   background: var(--card);
@@ -401,7 +400,7 @@ input[type=checkbox], input[type=radio] { accent-color: var(--primary-color); }
 
 .feature-card h3 { color: var(--primary-text); margin-bottom: 1rem; font-weight: 600; }
 
-/* modals — shared overlay */
+/* modals â€” shared overlay */
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -423,7 +422,7 @@ input[type=checkbox], input[type=radio] { accent-color: var(--primary-color); }
 }
 
 /* ==========================================================================
-   Reservations / orders — shared detail rows (dark-aware)
+   Reservations / orders â€” shared detail rows (dark-aware)
    ========================================================================== */
 .label {
   margin-bottom: 4px;
@@ -477,14 +476,14 @@ input[type=checkbox], input[type=radio] { accent-color: var(--primary-color); }
 .reservation-notes .value { font-style: italic; line-height: 1.4; color: var(--text-dark); }
 
 .reservation-actions { display: flex; gap: .5rem; margin-top: 1rem; }
-.giftcard-actions .btn, .reservation-actions .btn { flex: 1; padding: .5rem; font-size: .85rem; }
+.reservation-actions .btn { flex: 1; padding: .5rem; font-size: .85rem; }
 
 .reservation-card.status-pending { border-left-color: #f5b041; }
 .reservation-card.status-confirmed { border-left-color: #38bdf8; }
 .reservation-card.status-seated { border-left-color: #2dd4bf; }
 .reservation-card.status-completed { border-left-color: #4ade80; }
 .reservation-card.status-cancelled { border-left-color: #f87171; }
-.giftcard-card.redeemed, .reservation-card.cancelled { opacity: .7; border-left-color: #6b7280; }
+.reservation-card.cancelled { opacity: .7; border-left-color: #6b7280; }
 
 .order-main, .reservation-main { display: flex; justify-content: space-between; align-items: center; margin-bottom: .5rem; }
 .order-id, .reservation-party, .order-party { font-weight: 600; color: var(--text-dark); }
@@ -508,7 +507,6 @@ input[type=checkbox], input[type=radio] { accent-color: var(--primary-color); }
   .features-grid { grid-template-columns: 1fr; }
 
   .page-header .btn-primary,
-  .giftcards-container .btn-primary,
   .reservations-container .btn-primary { min-width: 180px; padding: .5rem 1.2rem; font-size: .85rem; }
 
   .order-main, .reservation-main { flex-direction: column; align-items: flex-start; gap: .5rem; }
@@ -526,6 +524,5 @@ input[type=checkbox], input[type=radio] { accent-color: var(--primary-color); }
   .page-header h1 { font-size: 1.75rem; }
 
   .page-header .btn-primary,
-  .giftcards-container .btn-primary,
   .reservations-container .btn-primary { min-width: 160px; padding: .4rem 1rem; font-size: .8rem; }
 }

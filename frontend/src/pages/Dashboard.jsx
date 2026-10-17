@@ -14,7 +14,6 @@ const Dashboard = () => {
   const [stats, setStats] = useState({
     totalOrders: 0,
     totalReservations: 0,
-    totalGiftCards: 0,
     pendingOrders: 0,
     upcomingReservations: 0
   });
@@ -52,8 +51,6 @@ const Dashboard = () => {
       const orders = ordersResponse.data.success ? ordersResponse.data.orders : [];
       const reservationsResponse = await api.get('/api/reservations', { headers });
       const reservations = reservationsResponse.data.success ? reservationsResponse.data.reservations : [];
-      const giftCardsResponse = await api.get('/api/giftcards', { headers });
-      const giftCards = giftCardsResponse.data.success ? giftCardsResponse.data.giftCards : [];
       const pendingOrders = orders.filter(order => 
         ['pending', 'confirmed', 'preparing'].includes(order.status)
       ).length;
@@ -70,7 +67,6 @@ const Dashboard = () => {
       setStats({
         totalOrders: orders.length,
         totalReservations: reservations.length,
-        totalGiftCards: giftCards.length,
         pendingOrders,
         upcomingReservations: upcomingReservationsList.length
       });
@@ -223,7 +219,7 @@ const Dashboard = () => {
   };
 
   const formatPrice = (price) => {
-    return `₱${parseFloat(price || 0).toFixed(2)}`;
+    return `â‚±${parseFloat(price || 0).toFixed(2)}`;
   };
 
   const formatDate = (dateString) => {
@@ -419,7 +415,7 @@ const Dashboard = () => {
       </div>
       <div className="stats-grid">
         <div className="stat-card">
-          <div className="stat-icon">📦</div>
+          <div className="stat-icon">ðŸ“¦</div>
           <div className="stat-info">
             <h3>{stats.totalOrders}</h3>
             <p>Total Orders</p>
@@ -430,7 +426,7 @@ const Dashboard = () => {
         </div>
 
         <div className="stat-card">
-          <div className="stat-icon">🏆</div>
+          <div className="stat-icon">ðŸ†</div>
           <div className="stat-info">
             <h3>{stats.totalReservations}</h3>
             <p>Reservations</p>
@@ -441,16 +437,7 @@ const Dashboard = () => {
         </div>
 
         <div className="stat-card">
-          <div className="stat-icon">🎁</div>
-          <div className="stat-info">
-            <h3>{stats.totalGiftCards}</h3>
-            <p>Gift Cards</p>
-            <span className="stat-subtitle">Sent to friends</span>
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-icon">🛒</div>
+          <div className="stat-icon">ðŸ›’</div>
           <div className="stat-info">
             <h3>{cart?.items?.length || 0}</h3>
             <p>Cart Items</p>
@@ -466,7 +453,7 @@ const Dashboard = () => {
         <div className="recent-orders">
           <div className="section-header">
             <h2>Recent Orders</h2>
-            <Link to="/orders" className="view-all-link">View All →</Link>
+            <Link to="/orders" className="view-all-link">View All â†’</Link>
           </div>
           
           {recentOrders.length === 0 ? (
@@ -509,7 +496,7 @@ const Dashboard = () => {
         <div className="upcoming-reservations">
           <div className="section-header">
             <h2>Upcoming Reservations</h2>
-            <Link to="/reservations" className="view-all-link">View All →</Link>
+            <Link to="/reservations" className="view-all-link">View All â†’</Link>
           </div>
           
           {upcomingReservations.length === 0 ? (
@@ -559,13 +546,6 @@ const Dashboard = () => {
           <h3>Table Reservations</h3>
           <p>Manage your upcoming bookings and make new reservations</p>
           <span className="card-badge">{stats.totalReservations} bookings</span>
-        </Link>
-        
-        <Link to="/giftcards" className="dashboard-card">
-          <div className="card-icon"></div>
-          <h3>Gift Cards</h3>
-          <p>Send delicious gifts to friends and family</p>
-          <span className="card-badge">{stats.totalGiftCards} sent</span>
         </Link>
         
         <Link to="/cart" className="dashboard-card">

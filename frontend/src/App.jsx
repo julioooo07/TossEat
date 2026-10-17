@@ -17,7 +17,6 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Orders from './pages/Orders';
 import Reservations from './pages/Reservations';
-import GiftCards from './pages/GiftCards';
 import Admin from './pages/Admin';
 import Cart from './pages/Cart';
 import Locations from './pages/Locations';
@@ -52,7 +51,6 @@ function App() {
                 <Route path="/dine-in" element={<DineInReservation />} />
                 <Route path="/orders" element={<Orders />} />
                 <Route path="/reservations" element={<Reservations />} />
-                <Route path="/giftcards" element={<GiftCards />} />
                 <Route path="/admin" element={<Admin />} />
                 <Route path="/cart" element={<Cart />} />
                 <Route path="/checkout" element={<Checkout />} />

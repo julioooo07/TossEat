@@ -176,18 +176,6 @@ const ReviewSchema = new mongoose.Schema({
   feedback: { type: String, trim: true, minlength: 5, maxlength: 1000, required: true }
 }, { timestamps: true });
 
-const GiftCardSchema = new mongoose.Schema({
-  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  amount: { type: Number, required: true },
-  recipientEmail: { type: String, required: true },
-  recipientName: { type: String, required: true },
-  message: String,
-  code: { type: String, unique: true },
-  isRedeemed: { type: Boolean, default: false },
-  redeemedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  redeemedAt: Date
-}, { timestamps: true });
-
 const CartSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, unique: true },
   items: [{
@@ -208,7 +196,6 @@ const Reservation = mongoose.model('Reservation', ReservationSchema);
 const Table = mongoose.model('Table', TableSchema);
 const WingFlavor = mongoose.model('WingFlavor', WingFlavorSchema);
 const Review = mongoose.model('Review', ReviewSchema);
-const GiftCard = mongoose.model('GiftCard', GiftCardSchema);
 const Cart = mongoose.model('Cart', CartSchema);
 const MenuItem = mongoose.model('MenuItem', new mongoose.Schema({ id: { type: Number, unique: true, required: true }, name: { type: String, required: true, trim: true }, price: { type: Number, required: true, min: 0 }, category: { type: String, required: true }, description: { type: String, default: '' }, image: { type: String, default: '/images/8pcs wings.jpg' }, active: { type: Boolean, default: true } }, { timestamps: true }));
 
@@ -486,22 +473,6 @@ app.get('/api/orders', authenticate, async (req, res) => {
   }
 });
 
-
-app.get('/api/giftcards', authenticate, async (req, res) => {
-  try {
-    const giftCards = await GiftCard.find({ user: req.user._id })
-      .sort({ createdAt: -1 })
-      .select('amount recipientEmail recipientName message code isRedeemed createdAt');
-    
-    res.json({ success: true, giftCards });
-  } catch (err) {
-    console.error('Gift cards fetch error:', err);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to fetch gift cards' 
-    });
-  }
-});
 
 app.get('/api/dine-in/options', async (req, res) => {
   try {
