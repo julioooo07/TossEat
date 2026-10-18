@@ -109,6 +109,8 @@
 .menu-card:nth-child(n+5) { animation-delay: .2s; }
 
 .menu-card:hover { transform: translateY(-3px); box-shadow: 0 0 0 1px rgba(161, 22, 22, .55), var(--shadow-md); }
+.menu-card.unavailable { opacity: .78; }
+.menu-card.unavailable:hover { transform: none; box-shadow: var(--ring), var(--shadow-sm); }
 
 .card-image { position: relative; height: 200px; overflow: hidden; }
 .card-image::after { content: ''; position: absolute; inset: auto 0 0 0; height: 40%; background: linear-gradient(180deg, transparent, rgba(0, 0, 0, .35)); pointer-events: none; }
@@ -116,6 +118,7 @@
 .menu-card:hover .card-image img { transform: scale(1.05); filter: brightness(1.05); }
 
 .popular-badge { position: absolute; top: 1rem; right: 1rem; z-index: 1; padding: .25rem .75rem; background: rgba(161, 22, 22, .9); border: 1px solid rgba(255, 255, 255, .18); border-radius: 999px; color: #fff; font-size: .75rem; font-weight: 700; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+.unavailable-badge { position: absolute; top: 1rem; left: 1rem; z-index: 1; padding: .35rem .75rem; background: rgba(31, 35, 42, .92); border: 1px solid rgba(255,255,255,.25); border-radius: 999px; color: #fff; font-size: .75rem; font-weight: 700; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
 
 .card-content { display: flex; flex-direction: column; flex-grow: 1; padding: 1.5rem; color: var(--text-dark); }
 .card-content h3 { margin: 0 0 .75rem; font-size: 1.15rem; font-weight: 600; letter-spacing: -.01em; color: var(--text-dark); }

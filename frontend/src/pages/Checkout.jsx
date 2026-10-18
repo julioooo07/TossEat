@@ -8,6 +8,8 @@ const Checkout = () => {
   const { user, api } = useAuth();
   const { cart, clearCart } = useCart();
   const navigate = useNavigate();
+  const [fulfillmentType, setFulfillmentType] = useState(() => sessionStorage.getItem('onlineOrderFulfillment') || 'delivery');
+  const fulfillmentLabels = { dine_in: 'Dine in', pickup: 'Pick up for to go', delivery: 'Delivery' };
   
   const [paymentMethod, setPaymentMethod] = useState('GCash');
   const [formData, setFormData] = useState({
@@ -57,11 +59,13 @@ const handleInputChange = (e) => {
     try {
       const paymentDetails = {
         fullName: formData.fullName,
-        address: formData.address,
         mobileNumber: formData.mobileNumber,
-        landmark: formData.landmark,
         paymentMethod: paymentMethod
       };
+      if (fulfillmentType === 'delivery') {
+        paymentDetails.address = formData.address;
+        paymentDetails.landmark = formData.landmark;
+      }
 
       if (paymentMethod === 'GCash') {
         paymentDetails.gcashNumber = formData.gcashNumber;
@@ -75,7 +79,8 @@ const handleInputChange = (e) => {
         items: cart.items,
         total: total,
         paymentMethod: paymentMethod,
-        paymentDetails: paymentDetails
+        paymentDetails: paymentDetails,
+        fulfillmentType
       };
 
       const response = await api.post('/api/orders', orderData);
@@ -89,6 +94,7 @@ const handleInputChange = (e) => {
             paymentDetails: paymentDetails
           } 
         });
+        sessionStorage.removeItem('onlineOrderFulfillment');
       }
     } catch (error) {
       alert('Payment failed. Please try again.');
@@ -115,7 +121,7 @@ const handleInputChange = (e) => {
     <div className="checkout-container">
       <div className="page-header">
         <h1>Checkout</h1>
-        <p>Complete your payment information</p>
+          <p>Complete your order details and payment information</p>
       </div>
 
       <div className="checkout-content">
@@ -146,6 +152,18 @@ const handleInputChange = (e) => {
         </div>
 
         <form onSubmit={handleSubmit} className="payment-form">
+          <div className="form-section">
+            <h3>How would you like your order?</h3>
+            <div className="method-options">
+              {Object.entries(fulfillmentLabels).map(([value, label]) => (
+                <label key={value} className={`method-option ${fulfillmentType === value ? 'active' : ''}`}>
+                  <input type="radio" name="fulfillmentType" value={value} checked={fulfillmentType === value} onChange={() => setFulfillmentType(value)} />
+                  <span>{label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
           <div className="payment-methods">
             <h3>Select Payment Method</h3>
             <div className="method-options">
@@ -179,13 +197,13 @@ const handleInputChange = (e) => {
                   checked={paymentMethod === 'COD'}
                   onChange={(e) => setPaymentMethod(e.target.value)}
                 />
-                <span>Cash on Delivery</span>
+                <span>{fulfillmentType === 'delivery' ? 'Cash on Delivery' : 'Pay with Cash'}</span>
               </label>
             </div>
           </div>
 
           <div className="form-section">
-            <h3>Delivery Information</h3>
+            <h3>{fulfillmentType === 'delivery' ? 'Delivery Information' : 'Customer Information'}</h3>
             <div className="form-grid">
               <div className="form-group">
                 <label>Full Name *</label>
@@ -198,16 +216,10 @@ const handleInputChange = (e) => {
                 />
               </div>
               
-              <div className="form-group">
+              {fulfillmentType === 'delivery' && <div className="form-group">
                 <label>Address *</label>
-                <input
-                  type="text"
-                  name="address"
-                  value={formData.address}
-                  onChange={handleInputChange}
-                  required
-                />
-              </div>
+                <input type="text" name="address" value={formData.address} onChange={handleInputChange} required />
+              </div>}
               
               <div className="form-group">
                 <label>Mobile Number *</label>
@@ -225,7 +237,7 @@ const handleInputChange = (e) => {
                 />
               </div>
               
-              <div className="form-group">
+              {fulfillmentType === 'delivery' && <div className="form-group">
                 <label>Landmark *</label>
                 <input
                   type="text"
@@ -235,7 +247,7 @@ const handleInputChange = (e) => {
                   required
                   placeholder="Nearby landmark or building"
                 />
-              </div>
+              </div>}
             </div>
           </div>
 

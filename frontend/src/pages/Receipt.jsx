@@ -5,7 +5,9 @@ import './Receipt.css';
 const Receipt = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { order, paymentDetails } = location.state || {};
+  const { order } = location.state || {};
+  const paymentDetails = location.state?.paymentDetails || order?.paymentDetails || {};
+  const fulfillmentLabels = { dine_in: 'Dine in at the restaurant', pickup: 'Pick up for to go', delivery: 'Delivery' };
 
   const formatPrice = (price) => {
     return `₱${parseFloat(price || 0).toFixed(2)}`;
@@ -49,6 +51,7 @@ const Receipt = () => {
 
         <div className="receipt-section">
           <h3>Order Details</h3>
+          <div className="info-row"><span>Order type:</span><span>{fulfillmentLabels[order.fulfillmentType || 'delivery']}</span></div>
           <div className="receipt-items">
             {order.items.map((item, index) => (
               <div key={index} className="receipt-item">
@@ -123,24 +126,21 @@ const Receipt = () => {
         </div>
 
         <div className="receipt-section">
-          <h3>Delivery Information</h3>
+          <h3>{order.fulfillmentType === 'delivery' || !order.fulfillmentType ? 'Delivery Information' : 'Customer Information'}</h3>
           <div className="delivery-info">
             <div className="info-row">
               <span>Name:</span>
               <span>{paymentDetails.fullName}</span>
             </div>
-            <div className="info-row">
-              <span>Address:</span>
-              <span>{paymentDetails.address}</span>
-            </div>
+            {(order.fulfillmentType === 'delivery' || !order.fulfillmentType) && <div className="info-row"><span>Address:</span><span>{paymentDetails.address}</span></div>}
             <div className="info-row">
               <span>Mobile:</span>
               <span>{paymentDetails.mobileNumber}</span>
             </div>
-            <div className="info-row">
+            {(order.fulfillmentType === 'delivery' || !order.fulfillmentType) && <div className="info-row">
               <span>Landmark:</span>
               <span>{paymentDetails.landmark}</span>
-            </div>
+            </div>}
           </div>
         </div>
 

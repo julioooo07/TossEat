@@ -15,6 +15,10 @@
   transition: var(--t-card);
 }
 
+.fulfillment-card { width: 100%; font: inherit; cursor: pointer; }
+.online-fulfillment-cards { grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+.order-type-back { margin-top: 1.5rem; padding: .7rem 1rem; border: 0; background: transparent; color: var(--primary-text); font: inherit; cursor: pointer; }
+
 .order-type-card:hover { transform: translateY(-3px); border-color: var(--primary-color); box-shadow: 0 0 0 1px rgba(161, 22, 22, .5), var(--shadow-md); }
 .order-type-card > span { font-size: 2.5rem; filter: drop-shadow(0 4px 12px rgba(0, 0, 0, .35)); }
 .order-type-card strong { color: var(--primary-text); }

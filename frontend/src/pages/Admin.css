@@ -193,13 +193,44 @@
 .admin-table-card p { margin: .55rem 0; color: var(--text-light); }
 .admin-table-card strong { font-size: 1.25rem; }
 .admin-table-card .timer-expired { color: #f87171; }
+.table-date-filter { display: flex; align-items: center; gap: .8rem; width: fit-content; margin: 1rem 0; color: var(--text-light); }
+.table-date-filter input { padding: .65rem .8rem; border: 1px solid var(--border-strong); border-radius: 9px; background: var(--card-2); color: var(--text-dark); }
 
 .admin-reservation-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
 .admin-reservation-actions button { width: auto; padding: .55rem .8rem; border: 0; border-radius: 8px; background: var(--primary-color); color: #fff; cursor: pointer; }
 .admin-reservation-actions select { min-width: 130px; }
 
+.menu-view-tabs { display: flex; gap: .5rem; margin: 1rem 0; border-bottom: 1px solid var(--border-subtle); }
+.menu-view-tabs button { display: inline-flex; align-items: center; gap: .55rem; padding: .75rem 1rem; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--text-light); font-weight: 700; cursor: pointer; }
+.menu-view-tabs button.active { border-bottom-color: var(--primary-text); color: var(--primary-text); }
+.menu-view-tabs button span { min-width: 1.4rem; padding: .1rem .4rem; border-radius: 999px; background: rgba(255,255,255,.08); text-align: center; font-size: .75rem; }
+.admin-menu-item { display: grid; gap: .85rem; }
+.admin-menu-item-summary { display: flex; justify-content: space-between; align-items: center; gap: 1rem; width: 100%; }
+.admin-menu-item-summary p { margin: .35rem 0; color: var(--text-light); }
+.admin-menu-item-summary small { display: block; color: var(--text-light); }
+.admin-menu-item-actions { display: flex; flex-wrap: wrap; gap: .45rem; }
+.admin-menu-item-actions button, .archived-menu-item button { width: auto; padding: .55rem .8rem; border: 1px solid var(--border-strong); border-radius: 9px; background: var(--card-2); color: var(--text-dark); font-weight: 600; cursor: pointer; }
+.admin-menu-item-actions .archive-menu-button { color: #fecaca; border-color: rgba(248,113,113,.35); }
+.menu-availability-pill { display: inline-flex; margin-top: .4rem; padding: .25rem .6rem; border-radius: 999px; background: rgba(248,113,113,.12); color: #fecaca; font-size: .75rem; font-weight: 700; }
+.menu-availability-pill.available { background: rgba(74,222,128,.1); color: #bbf7d0; }
+.menu-item-unavailable { border-color: rgba(248,113,113,.25); }
+.admin-menu-edit-form { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: .8rem; padding: 1rem; border-radius: var(--radius-md); background: var(--card-2); }
+.admin-menu-edit-form > label { display: grid; gap: .35rem; color: var(--text-light); font-size: .85rem; font-weight: 600; }
+.admin-menu-edit-form input, .admin-menu-edit-form select, .admin-menu-edit-form textarea { width: 100%; padding: .6rem .7rem; border: 1px solid var(--border-strong); border-radius: 9px; background: rgba(255,255,255,.035); color: var(--text-dark); }
+.admin-menu-edit-form .edit-description-field { grid-column: 1 / -1; }
+.edit-variant-prices { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: end; gap: .65rem; }
+.edit-variant-prices > strong { flex-basis: 100%; }
+.edit-variant-prices label { display: grid; gap: .3rem; color: var(--text-light); font-size: .8rem; }
+.edit-variant-prices input { min-width: 120px; }
+.admin-menu-edit-form > button { justify-self: start; }
+
 @media (max-width: 600px) {
   .admin-table-form { align-items: stretch; flex-direction: column; }
   .admin-reservation-actions { flex-direction: column; }
   .admin-reservation-actions select, .admin-reservation-actions button { width: 100%; }
+  .admin-menu-item-summary { align-items: flex-start; flex-direction: column; }
+  .admin-menu-item-actions { width: 100%; }
+  .admin-menu-item-actions button { flex: 1; }
+  .admin-menu-edit-form { grid-template-columns: 1fr; }
+  .admin-menu-edit-form .edit-description-field, .edit-variant-prices { grid-column: auto; }
 }

@@ -115,6 +115,7 @@ const OrderSchema = new mongoose.Schema({
     required: true,
     enum: ['COD', 'GCash', 'Maya', 'Credit Card']
   },
+  fulfillmentType: { type: String, enum: ['dine_in', 'pickup', 'delivery'], default: 'delivery' },
   paymentDetails: { type: Object }
 }, { timestamps: true });
 
@@ -197,7 +198,20 @@ const Table = mongoose.model('Table', TableSchema);
 const WingFlavor = mongoose.model('WingFlavor', WingFlavorSchema);
 const Review = mongoose.model('Review', ReviewSchema);
 const Cart = mongoose.model('Cart', CartSchema);
-const MenuItem = mongoose.model('MenuItem', new mongoose.Schema({ id: { type: Number, unique: true, required: true }, name: { type: String, required: true, trim: true }, price: { type: Number, required: true, min: 0 }, category: { type: String, required: true }, description: { type: String, default: '' }, image: { type: String, default: '/images/8pcs wings.jpg' }, active: { type: Boolean, default: true } }, { timestamps: true }));
+const MenuItem = mongoose.model('MenuItem', new mongoose.Schema({
+  id: { type: Number, unique: true, required: true },
+  name: { type: String, required: true, trim: true },
+  price: { type: Number, required: true, min: 0 },
+  category: { type: String, required: true },
+  description: { type: String, default: '' },
+  image: { type: String, default: '/images/8pcs wings.jpg' },
+  variants: [{ label: { type: String, required: true }, price: { type: Number, required: true, min: 0 } }],
+  hasFlavor: { type: Boolean, default: false },
+  extraFlavorPrice: { type: Number, default: 0 },
+  isBuiltIn: { type: Boolean, default: false },
+  available: { type: Boolean, default: true },
+  active: { type: Boolean, default: true }
+}, { timestamps: true }));
 
 const wingFlavors = new Set([
   'Salted Egg', 'Garlic Parmesan', '4 Spice', 'Picante Parmigiano', 'Tex Mex', 'Buffalo',
@@ -222,6 +236,50 @@ const menuCatalog = {
   '915': { name: 'Bottomless Juice Upgrade', variants: { 'House Blend Iced Tea': 40, 'Cucumber Lemonade': 40 } }
 };
 
+let builtInMenuSeedPromise;
+const ensureBuiltInMenuItems = () => {
+  if (builtInMenuSeedPromise) return builtInMenuSeedPromise;
+  builtInMenuSeedPromise = (async () => {
+  const categories = { '401': 'CHICKENWINGS', '402': 'UNLIMITEDWINGS', '904': 'ADDONS', '905': 'DIPS', '906': 'DIPS', '907': 'DIPS' };
+  const builtInVariants = {
+    '401': [{ label: '8 pcs — 1 flavor', price: 299 }],
+    '908': [{ label: 'Single', price: 50 }, { label: 'Unlimited', price: 70 }],
+    '909': [{ label: 'Single', price: 50 }, { label: 'Unlimited', price: 70 }],
+    '915': [{ label: 'House Blend Iced Tea', price: 40 }, { label: 'Cucumber Lemonade', price: 40 }]
+  };
+  const descriptions = {
+    '401': '8 pieces of chicken wings with one flavor of your choice. Add a second flavor for ₱10.',
+    '402': 'Unlimited chicken wings and rice. Choose two initial flavors for each diner.',
+    '904': 'Plain fries or spiced fries.', '905': 'Aioli dipping sauce.', '906': 'Sriracha mayonnaise dip.',
+    '907': 'Cheese dipping sauce.', '908': 'Single serving or unlimited iced tea.',
+    '909': 'Single serving or unlimited cucumber lemonade.', '910': 'Juice pitcher for sharing.',
+    '911': 'Canned soda.', '912': 'Pineapple juice.', '913': '1.5-liter soda bottle.',
+    '914': 'Bottled water.', '915': 'Add bottomless juice to an ala carte wings order.'
+  };
+  await Promise.all(Object.entries(menuCatalog).map(async ([id, product]) => {
+    const variants = builtInVariants[id] || Object.entries(product.variants || {}).map(([label, price]) => ({ label, price }));
+    const price = product.basePrice ?? variants[0]?.price ?? 0;
+    await MenuItem.updateOne({ id: Number(id) }, { $setOnInsert: {
+      id: Number(id), name: product.name, price, category: categories[id] || 'DRINKS',
+      description: descriptions[id] || '', image: '/images/8pcs wings.jpg', variants,
+      hasFlavor: ['401', '402'].includes(id), extraFlavorPrice: id === '401' ? 10 : 0,
+      isBuiltIn: true, available: true, active: true
+    } }, { upsert: true });
+  }));
+  })().catch(error => { builtInMenuSeedPromise = null; throw error; });
+  return builtInMenuSeedPromise;
+};
+
+const toCatalogProduct = (item) => ({
+  name: item.name,
+  basePrice: item.price,
+  variants: item.variants?.length ? Object.fromEntries(item.variants.map(variant => [variant.label, variant.price])) : undefined,
+  flavors: item.hasFlavor ? (String(item.id) === '401' ? 2 : 1) : undefined,
+  category: item.category,
+  available: item.available,
+  extraFlavorPrice: item.extraFlavorPrice || 0
+});
+
 const { reservationSlots, getReservationWindow, isValidFlavorPair, calculateSubtotal } = require('./reservationRules');
 
 const reservationBranches = {
@@ -245,7 +303,7 @@ const claimTable = async ({ branch, partySize, reservationId, startsAt, endsAt, 
     ...(branch ? { branch } : {}),
     status: 'AVAILABLE',
     capacity: { $gte: partySize },
-    bookings: { $not: { $elemMatch: { startsAt: { $lt: endsAt }, endsAt: { $gt: startsAt } } } }
+    bookings: { $not: { $elemMatch: { $or: [{ state: 'ACTIVE' }, { startsAt: { $lt: endsAt }, endsAt: { $gt: startsAt } }] } } }
   };
   return Table.findOneAndUpdate(filter, {
     $push: { bookings: { reservation: reservationId, startsAt, endsAt, state: 'HELD' } }
@@ -256,7 +314,7 @@ const findAvailableTable = ({ branch, partySize, startsAt, endsAt }) => Table.fi
   branch,
   status: 'AVAILABLE',
   capacity: { $gte: partySize },
-  bookings: { $not: { $elemMatch: { startsAt: { $lt: endsAt }, endsAt: { $gt: startsAt } } } }
+  bookings: { $not: { $elemMatch: { $or: [{ state: 'ACTIVE' }, { startsAt: { $lt: endsAt }, endsAt: { $gt: startsAt } }] } } }
 }).select('_id').lean();
 
 const releaseTableHold = async (tableId, reservationId) => {
@@ -264,27 +322,27 @@ const releaseTableHold = async (tableId, reservationId) => {
 };
 
 const getDineInMenu = async () => {
-  const builtIn = Object.entries(menuCatalog).map(([id, item]) => {
-    const category = id === '402' ? 'UNLIMITEDWINGS' : id === '401' ? 'CHICKENWINGS' : ['905', '906', '907'].includes(id) ? 'DIPS' : ['904'].includes(id) ? 'ADDONS' : 'DRINKS';
-    const variants = item.variants ? Object.entries(item.variants).map(([label, price]) => ({ label, price })) : [];
-    return { id, name: item.name, category, classification: id === '402' ? 'UNLIMITED_WINGS' : 'ALA_CARTE', price: item.basePrice ?? variants[0]?.price ?? 0, variants };
-  });
-  const customItems = await MenuItem.find({ active: true }).sort({ createdAt: 1 }).lean();
-  return [...builtIn, ...customItems.map(item => ({ id: String(item.id), name: item.name, category: item.category, classification: item.category === 'UNLIMITEDWINGS' ? 'UNLIMITED_WINGS' : 'ALA_CARTE', price: item.price, variants: [] }))];
+  await ensureBuiltInMenuItems();
+  const items = await MenuItem.find({ active: true }).sort({ isBuiltIn: -1, id: 1, createdAt: 1 }).lean();
+  return items.map(item => ({
+    id: String(item.id), name: item.name, category: item.category,
+    classification: item.category === 'UNLIMITEDWINGS' ? 'UNLIMITED_WINGS' : 'ALA_CARTE',
+    price: item.price, variants: item.variants || [], hasFlavor: item.hasFlavor,
+    available: item.available, extraFlavorPrice: item.extraFlavorPrice || 0
+  }));
 };
 
 const normalizeCartItem = async (input) => {
   const itemId = String(input?.itemId ?? '');
-  let product = menuCatalog[itemId];
-  if (!product) {
-    const savedItem = await MenuItem.findOne({ id: Number(itemId), active: true }).lean();
-    if (savedItem) product = { name: savedItem.name, basePrice: savedItem.price };
-  }
+  await ensureBuiltInMenuItems();
+  const savedItem = await MenuItem.findOne({ id: Number(itemId), active: true }).lean();
+  const product = savedItem && savedItem.available ? toCatalogProduct(savedItem) : null;
   const quantity = Number(input?.quantity);
   if (!product || !Number.isInteger(quantity) || quantity < 1 || quantity > 50) {
     throw new Error('Invalid menu item or quantity');
   }
-  const size = product.variants ? String(input?.size ?? '') : '';
+  const requestedSize = String(input?.size ?? '');
+  const size = product.variants ? (requestedSize || Object.keys(product.variants)[0]) : '';
   const price = product.variants ? product.variants[size] : product.basePrice;
   if (price === undefined) throw new Error('Invalid menu option');
   let flavor = '';
@@ -413,6 +471,7 @@ app.post('/api/login', authLimiter, async (req, res) => {
 app.post('/api/orders', authenticate, async (req, res) => {
   try {
     const { paymentMethod, paymentDetails } = req.body;
+    const fulfillmentType = ['dine_in', 'pickup', 'delivery'].includes(req.body.fulfillmentType) ? req.body.fulfillmentType : 'delivery';
     const cart = await Cart.findOne({ user: req.user._id });
     if (!cart?.items?.length || !['COD', 'GCash', 'Maya', 'Credit Card'].includes(paymentMethod)) {
       return res.status(400).json({
@@ -429,6 +488,7 @@ app.post('/api/orders', authenticate, async (req, res) => {
       items, 
       total,
       paymentMethod,
+      fulfillmentType,
       paymentDetails: typeof paymentDetails === 'object' && paymentDetails !== null ? paymentDetails : {},
       status: 'pending'
     });
@@ -466,7 +526,7 @@ app.get('/api/orders', authenticate, async (req, res) => {
   try {
     const orders = await Order.find({ user: req.user._id })
       .sort({ createdAt: -1 })
-      .select('items total status createdAt paymentMethod');
+      .select('items total status createdAt paymentMethod fulfillmentType');
     res.json({ success: true, orders });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Failed to fetch orders' });
@@ -490,7 +550,7 @@ app.get('/api/dine-in/options', async (req, res) => {
 app.get('/api/reservations/availability', async (req, res) => {
   try {
     const { branch, date, partySize, time } = req.query;
-    if (!reservationBranches[branch] || !Number.isInteger(Number(partySize)) || Number(partySize) < 1 || Number(partySize) > 30) {
+    if (!reservationBranches[branch] || !Number.isInteger(Number(partySize)) || Number(partySize) < 1 || Number(partySize) > 6) {
       return res.status(400).json({ success: false, message: 'Choose a valid branch and guest count.' });
     }
     if (time) {
@@ -521,11 +581,11 @@ app.post('/api/reservations', authenticate, async (req, res) => {
     const cleanName = typeof name === 'string' ? name.trim() : '';
     const guests = Number(partySize);
     const wingDiners = Number(unlimitedWingsDiners);
-    if (!reservationBranches[branch] || cleanName.length < 2 || cleanName.length > 100 || !/^09\d{9}$/.test(String(phone || ''))) {
+    if (!reservationBranches[branch] || cleanName.length < 2 || cleanName.length > 100 || !/^09\d{9}$/.test(String(phone || '')) || !/^\d+$/.test(String(phone || ''))) {
       return res.status(400).json({ success: false, message: 'Enter your name, a valid mobile number, and a Toss Eat branch.' });
     }
-    if (!Number.isInteger(guests) || guests < 1 || guests > 30 || !Number.isInteger(wingDiners) || wingDiners < 0 || wingDiners > guests) {
-      return res.status(400).json({ success: false, message: 'Guest and Unlimited Wings counts must be valid; Wings diners cannot exceed the party size.' });
+    if (!Number.isInteger(guests) || guests < 1 || guests > 6 || !Number.isInteger(wingDiners) || wingDiners < 0 || wingDiners > guests) {
+      return res.status(400).json({ success: false, message: 'Guest count must be from 1 to 6, and Unlimited Wings diners cannot exceed the party size.' });
     }
     if (!['GCASH', 'IN_RESTAURANT'].includes(paymentMethod)) return res.status(400).json({ success: false, message: 'Choose GCash or Pay at Restaurant.' });
     if (!Array.isArray(items) || items.length < 1 || items.length > 30) return res.status(400).json({ success: false, message: 'Choose at least one menu item.' });
@@ -537,16 +597,14 @@ app.post('/api/reservations', authenticate, async (req, res) => {
     for (const input of items) {
       const itemId = String(input?.itemId ?? '');
       const quantity = Number(input?.quantity);
-      let product = menuCatalog[itemId];
-      let custom = null;
-      if (!product) {
-        custom = await MenuItem.findOne({ id: Number(itemId), active: true }).lean();
-        if (custom) product = { name: custom.name, basePrice: custom.price };
-      }
+      await ensureBuiltInMenuItems();
+      const custom = await MenuItem.findOne({ id: Number(itemId), active: true, available: true }).lean();
+      const product = custom ? toCatalogProduct(custom) : null;
       if (!product || !Number.isInteger(quantity) || quantity < 1 || quantity > guests) {
         return res.status(400).json({ success: false, message: 'One of the selected menu items or quantities is invalid.' });
       }
-      const size = product.variants ? String(input?.size ?? '') : '';
+      const requestedSize = String(input?.size ?? '');
+      const size = product.variants ? (requestedSize || Object.keys(product.variants)[0]) : '';
       let unitPrice = product.variants ? product.variants[size] : product.basePrice;
       if (unitPrice === undefined) return res.status(400).json({ success: false, message: 'Choose a valid option for each menu item.' });
       let selectedFlavors = [];
@@ -555,7 +613,7 @@ app.post('/api/reservations', authenticate, async (req, res) => {
         if (selectedFlavors.length < 1 || selectedFlavors.length > 2 || selectedFlavors.some(flavor => !wingFlavors.has(flavor)) || new Set(selectedFlavors).size !== selectedFlavors.length) return res.status(400).json({ success: false, message: 'Choose one or two valid flavors for Ala Carte Chicken Wings.' });
         if (selectedFlavors.length === 2) unitPrice += 10;
       }
-      const classification = itemId === '402' || custom?.category === 'UNLIMITEDWINGS' ? 'UNLIMITED_WINGS' : 'ALA_CARTE';
+      const classification = custom?.category === 'UNLIMITEDWINGS' ? 'UNLIMITED_WINGS' : 'ALA_CARTE';
       normalizedItems.push({ itemId, name: product.name, classification, quantity, size, flavors: selectedFlavors, unitPrice, subtotal: unitPrice * quantity });
     }
 
@@ -820,8 +878,18 @@ const isAdmin = (req, res, next) => authenticate(req, res, () => {
 });
 
 app.get('/api/menu', async (req, res) => {
-  try { const items = await MenuItem.find({ active: true }).sort({ createdAt: 1 }).lean(); res.json({ success: true, items }); }
+  try { await ensureBuiltInMenuItems(); const items = await MenuItem.find({ active: true }).sort({ isBuiltIn: -1, id: 1, createdAt: 1 }).lean(); res.json({ success: true, items }); }
   catch (err) { res.status(500).json({ success: false, message: 'Failed to load menu items' }); }
+});
+
+app.get('/api/admin/menu', isAdmin, async (req, res) => {
+  try { await ensureBuiltInMenuItems(); const items = await MenuItem.find({ active: true }).sort({ isBuiltIn: -1, id: 1, createdAt: 1 }).lean(); res.json({ success: true, items }); }
+  catch (err) { res.status(500).json({ success: false, message: 'Failed to load menu items' }); }
+});
+
+app.get('/api/admin/menu/archive', isAdmin, async (req, res) => {
+  try { await ensureBuiltInMenuItems(); const items = await MenuItem.find({ active: false }).sort({ updatedAt: -1 }).lean(); res.json({ success: true, items }); }
+  catch (err) { res.status(500).json({ success: false, message: 'Failed to load archived menu items' }); }
 });
 
 app.post('/api/admin/menu', isAdmin, async (req, res) => {
@@ -834,13 +902,60 @@ app.post('/api/admin/menu', isAdmin, async (req, res) => {
     const priceText = typeof price === 'number' ? String(price) : typeof price === 'string' ? price.trim() : '';
     const numericPrice = Number(priceText);
     if (cleanName.length < 2 || cleanName.length > 80) return res.status(400).json({ success: false, message: 'Name must be 2–80 characters.' });
-    if (!/[\p{L}\p{N}]/u.test(cleanName)) return res.status(400).json({ success: false, message: 'Item name must include at least one letter or number.' });
+    if (!/^[\p{L} ]+$/u.test(cleanName)) return res.status(400).json({ success: false, message: 'Item name can contain letters and spaces only.' });
     if (!/^\d+(?:\.\d{0,2})?$/.test(priceText) || !Number.isFinite(numericPrice) || numericPrice < 1 || numericPrice > 100000) return res.status(400).json({ success: false, message: 'Price must be a number between ₱1 and ₱100,000 with up to 2 decimal places.' });
     if (!validCategories.includes(cleanCategory)) return res.status(400).json({ success: false, message: 'Choose a valid category.' });
     if (cleanDescription.length > 300) return res.status(400).json({ success: false, message: 'Description must be 300 characters or fewer.' });
-    const item = await MenuItem.create({ id: Date.now(), name: cleanName, price: numericPrice, category: cleanCategory, description: cleanDescription, image: typeof image === 'string' && image.startsWith('/') ? image.slice(0, 200) : '/images/8pcs wings.jpg' });
+    const item = await MenuItem.create({ id: Date.now(), name: cleanName, price: numericPrice, category: cleanCategory, description: cleanDescription, image: typeof image === 'string' && image.startsWith('/') ? image.slice(0, 200) : '/images/8pcs wings.jpg', isBuiltIn: false, available: true, active: true });
     res.status(201).json({ success: true, item });
   } catch (err) { res.status(500).json({ success: false, message: 'Could not save menu item.' }); }
+});
+
+app.put('/api/admin/menu/:id', isAdmin, async (req, res) => {
+  try {
+    const { name, price, category, description = '', variants } = req.body;
+    const cleanName = typeof name === 'string' ? name.trim() : '';
+    const cleanDescription = typeof description === 'string' ? description.trim() : '';
+    const cleanCategory = typeof category === 'string' ? category : '';
+    const priceText = typeof price === 'number' ? String(price) : typeof price === 'string' ? price.trim() : '';
+    const numericPrice = Number(priceText);
+    const validCategories = ['CHICKENWINGS', 'UNLIMITEDWINGS', 'DIPS', 'ADDONS', 'DRINKS'];
+    if (cleanName.length < 2 || cleanName.length > 80 || !/[\p{L}\p{N}]/u.test(cleanName)) return res.status(400).json({ success: false, message: 'Enter an item name between 2 and 80 characters.' });
+    if (!/^\d+(?:\.\d{0,2})?$/.test(priceText) || !Number.isFinite(numericPrice) || numericPrice < 1 || numericPrice > 100000) return res.status(400).json({ success: false, message: 'Enter a valid price between ₱1 and ₱100,000.' });
+    if (!validCategories.includes(cleanCategory)) return res.status(400).json({ success: false, message: 'Choose a valid category.' });
+    if (cleanDescription.length > 300) return res.status(400).json({ success: false, message: 'Description must be 300 characters or fewer.' });
+    const item = await MenuItem.findOne({ id: Number(req.params.id), active: true });
+    if (!item) return res.status(404).json({ success: false, message: 'Menu item not found.' });
+    item.name = cleanName;
+    item.price = numericPrice;
+    if (!item.isBuiltIn) item.category = cleanCategory;
+    item.description = cleanDescription;
+    if (Array.isArray(variants)) {
+      if (variants.length !== item.variants.length || variants.some(variant => typeof variant.label !== 'string' || !/^\d+(?:\.\d{0,2})?$/.test(String(variant.price)) || Number(variant.price) < 1 || Number(variant.price) > 100000)) {
+        return res.status(400).json({ success: false, message: 'Enter a valid price for every menu option.' });
+      }
+      item.variants = item.variants.map((current, index) => ({ label: current.label, price: Number(variants[index].price) }));
+    }
+    await item.save();
+    res.json({ success: true, item });
+  } catch (err) { res.status(500).json({ success: false, message: 'Could not update menu item.' }); }
+});
+
+app.put('/api/admin/menu/:id/availability', isAdmin, async (req, res) => {
+  try {
+    if (typeof req.body.available !== 'boolean') return res.status(400).json({ success: false, message: 'Availability must be true or false.' });
+    const item = await MenuItem.findOneAndUpdate({ id: Number(req.params.id), active: true }, { $set: { available: req.body.available } }, { new: true });
+    if (!item) return res.status(404).json({ success: false, message: 'Menu item not found.' });
+    res.json({ success: true, item });
+  } catch (err) { res.status(500).json({ success: false, message: 'Could not update item availability.' }); }
+});
+
+app.put('/api/admin/menu/:id/restore', isAdmin, async (req, res) => {
+  try {
+    const item = await MenuItem.findOneAndUpdate({ id: Number(req.params.id), active: false }, { $set: { active: true } }, { new: true });
+    if (!item) return res.status(404).json({ success: false, message: 'Archived menu item not found.' });
+    res.json({ success: true, item });
+  } catch (err) { res.status(500).json({ success: false, message: 'Could not restore menu item.' }); }
 });
 
 app.delete('/api/admin/menu/:id', isAdmin, async (req, res) => {
@@ -876,7 +991,7 @@ app.get('/api/admin/orders', isAdmin, async (req, res) => {
     const orders = await Order.find(query)
       .sort({ createdAt: -1 })
       .populate('user', 'name email')
-      .select('items total status createdAt paymentMethod paymentDetails');
+      .select('items total status createdAt paymentMethod paymentDetails fulfillmentType');
     
     res.json({ success: true, orders });
   } catch (err) {
@@ -956,7 +1071,7 @@ app.put('/api/admin/tables/:id/status', isAdmin, async (req, res) => {
   try {
     const status = String(req.body.status || '');
     if (!['AVAILABLE', 'UNAVAILABLE', 'CLEANING'].includes(status)) return res.status(400).json({ success: false, message: 'Invalid table status.' });
-    const table = await Table.findOneAndUpdate({ _id: req.params.id, bookings: { $size: 0 } }, { $set: { status } }, { new: true });
+    const table = await Table.findOneAndUpdate({ _id: req.params.id, $and: [{ bookings: { $not: { $elemMatch: { state: 'ACTIVE' } } } }, { bookings: { $not: { $elemMatch: { endsAt: { $gt: new Date() } } } } }] }, { $set: { status } }, { new: true });
     if (!table) return res.status(409).json({ success: false, message: 'Table has an active reservation or does not exist.' });
     res.json({ success: true, table });
   } catch (err) {
@@ -999,6 +1114,9 @@ app.post('/api/admin/reservations/:id/actions', isAdmin, async (req, res) => {
     } else if (action === 'check_in') {
       if (reservation.status !== 'confirmed') return res.status(409).json({ success: false, message: 'Only confirmed reservations can be checked in.' });
       const checkInAt = new Date();
+      const todayParts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(checkInAt).map(part => [part.type, part.value]));
+      const todayInManila = `${todayParts.year}-${todayParts.month}-${todayParts.day}`;
+      if (reservation.date.toISOString().slice(0, 10) !== todayInManila) return res.status(409).json({ success: false, message: 'Check-in is available only on the reservation date.' });
       const deadline = new Date(checkInAt.getTime() + 120 * 60 * 1000);
       const tableIdForCheckIn = tableId || reservation.table;
       if (!tableIdForCheckIn) return res.status(409).json({ success: false, message: 'Assign a table before checking in.' });
@@ -1012,7 +1130,7 @@ app.post('/api/admin/reservations/:id/actions', isAdmin, async (req, res) => {
         status: 'AVAILABLE',
         $and: [
           { bookings: { $elemMatch: { reservation: reservation._id, state: 'HELD' } } },
-          { bookings: { $not: { $elemMatch: { reservation: { $ne: reservation._id }, startsAt: { $lt: deadline }, endsAt: { $gt: checkInAt } } } } }
+          { bookings: { $not: { $elemMatch: { reservation: { $ne: reservation._id }, $or: [{ state: 'ACTIVE' }, { startsAt: { $lt: deadline }, endsAt: { $gt: checkInAt } }] } } } }
         ]
       }, { $set: { 'bookings.$.startsAt': checkInAt, 'bookings.$.endsAt': deadline, 'bookings.$.state': 'ACTIVE' } }, { new: true });
       if (!tableSchedule) { await releaseTableHold(newlyClaimedTable, reservation._id); return res.status(409).json({ success: false, message: 'The table conflicts with another booking for the full 2-hour session.' }); }
@@ -1023,7 +1141,7 @@ app.post('/api/admin/reservations/:id/actions', isAdmin, async (req, res) => {
       if (reservation.status !== 'checked_in') return res.status(409).json({ success: false, message: 'Only checked-in reservations can be completed.' });
       const completedAt = new Date();
       updated = await Reservation.findOneAndUpdate({ _id: reservation._id, status: 'checked_in' }, { $set: { status: 'completed', diningStatus: 'COMPLETED', completedAt }, $push: { statusHistory: { status: 'completed', actor, at: completedAt } } }, { new: true });
-      releaseAfter = reservation.table;
+      if (reservation.paymentStatus === 'PAID') releaseAfter = reservation.table;
     } else if (action === 'no_show') {
       if (reservation.status !== 'confirmed') return res.status(409).json({ success: false, message: 'Only confirmed reservations can be marked no-show.' });
       const noShowFields = { status: 'no_show' };
@@ -1046,15 +1164,17 @@ app.post('/api/admin/reservations/:id/actions', isAdmin, async (req, res) => {
 app.post('/api/admin/reservations/:id/payment', isAdmin, async (req, res) => {
   try {
     const paymentReference = typeof req.body.reference === 'string' ? req.body.reference.trim().slice(0, 100) : '';
-    const target = await Reservation.findById(req.params.id).select('paymentMethod subtotal');
+    const target = await Reservation.findById(req.params.id).select('paymentMethod subtotal status table');
     if (!target) return res.status(404).json({ success: false, message: 'Reservation not found.' });
+    if (!['checked_in', 'completed'].includes(target.status)) return res.status(409).json({ success: false, message: 'Payment can be confirmed only after the customer has checked in.' });
     if (target.paymentMethod === 'GCASH' && !paymentReference) return res.status(400).json({ success: false, message: 'Enter the verified GCash transaction reference.' });
     const reservation = await Reservation.findOneAndUpdate(
-      { _id: req.params.id, paymentStatus: { $in: ['UNPAID', 'PENDING'] } },
+      { _id: req.params.id, status: { $in: ['checked_in', 'completed'] }, paymentStatus: { $in: ['UNPAID', 'PENDING'] } },
       { $set: { paymentStatus: 'PAID', paymentPaidAt: new Date(), paymentConfirmedBy: req.user._id, paymentAmount: target.subtotal, paymentReference }, $push: { statusHistory: { status: 'payment_paid', actor: req.user._id, at: new Date() } } },
       { new: true }
     ).populate('user', 'name email').populate('table', 'branch number');
     if (!reservation) return res.status(409).json({ success: false, message: 'Payment is already recorded or the reservation does not exist.' });
+    if (reservation.status === 'completed') await releaseTableHold(reservation.table?._id || target.table, reservation._id);
     res.json({ success: true, reservation });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Could not record payment.' });

@@ -73,6 +73,7 @@ const fetchOrders = async () => {
                 <p><strong>Date:</strong> {new Date(order.createdAt).toLocaleDateString()}</p>
                 <p><strong>Total:</strong> {formatPrice(order.total)}</p>
                 <p><strong>Payment Method:</strong> {order.paymentMethod}</p>
+                <p><strong>Order type:</strong> {{ dine_in: 'Dine in', pickup: 'Pick up for to go', delivery: 'Delivery' }[order.fulfillmentType || 'delivery']}</p>
               </div>
 
               <div className="order-items">

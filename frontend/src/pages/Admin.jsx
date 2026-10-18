@@ -10,9 +10,14 @@ const Admin = () => {
   const [reservations, setReservations] = useState([]);
   const [tables, setTables] = useState([]);
   const [tableDraft, setTableDraft] = useState({ branch: 'molino', number: '', capacity: 2 });
+  const [tableDate, setTableDate] = useState(() => { const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date()).map(part => [part.type, part.value])); return `${parts.year}-${parts.month}-${parts.day}`; });
   const [timerNow, setTimerNow] = useState(Date.now());
   const [tableError, setTableError] = useState('');
   const [menuItems, setMenuItems] = useState([]);
+  const [archivedMenuItems, setArchivedMenuItems] = useState([]);
+  const [menuView, setMenuView] = useState('current');
+  const [editingMenuId, setEditingMenuId] = useState(null);
+  const [editingMenuDraft, setEditingMenuDraft] = useState(null);
   const [menuError, setMenuError] = useState('');
   const [menuDraft, setMenuDraft] = useState({ name: '', price: '', category: 'DRINKS', description: '' });
   const [stats, setStats] = useState({
@@ -37,6 +42,41 @@ const Admin = () => {
       minute: '2-digit'
     });
   };
+
+  const todayManila = () => {
+    const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date()).map(part => [part.type, part.value]));
+    return `${parts.year}-${parts.month}-${parts.day}`;
+  };
+  const reservationDateKey = reservation => new Date(reservation.date).toISOString().slice(0, 10);
+  const adminTableAvailableFor = (table, reservation, checkingIn = false) => {
+    if (table.branch !== reservation.branch || table.status !== 'AVAILABLE' || Number(table.capacity) < Number(reservation.partySize)) return false;
+    const reservationId = String(reservation._id);
+    const start = checkingIn ? Date.now() : (() => {
+      const [year, month, day] = reservationDateKey(reservation).split('-').map(Number);
+      const [hour, minute] = reservation.time.split(':').map(Number);
+      return Date.UTC(year, month - 1, day, hour, minute) - 8 * 60 * 60 * 1000;
+    })();
+    const end = start + 2 * 60 * 60 * 1000;
+    return !(table.bookings || []).some(booking => {
+      const bookedReservationId = String(booking.reservation?._id || booking.reservation || '');
+      if (bookedReservationId === reservationId) return false;
+      if (booking.state === 'ACTIVE') return true;
+      return new Date(booking.startsAt).getTime() < end && new Date(booking.endsAt).getTime() > start;
+    });
+  };
+  const getTableDisplayBooking = table => {
+    const activeBooking = (table.bookings || []).find(booking => booking.state === 'ACTIVE');
+    if (activeBooking) return activeBooking;
+    const [year, month, day] = tableDate.split('-').map(Number);
+    const dayStart = Date.UTC(year, month - 1, day) - 8 * 60 * 60 * 1000;
+    const dayEnd = dayStart + 24 * 60 * 60 * 1000;
+    const bookings = [...(table.bookings || [])]
+      .filter(booking => new Date(booking.startsAt).getTime() < dayEnd && new Date(booking.endsAt).getTime() > dayStart)
+      .sort((a, b) => new Date(a.startsAt) - new Date(b.startsAt));
+    return bookings.find(booking => booking.state === 'ACTIVE') || bookings.find(booking => new Date(booking.endsAt) > Date.now());
+  };
+  const formatReservationTime = time => { const [hour, minute] = time.split(':').map(Number); return new Date(2000, 0, 1, hour, minute).toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit', hour12: true }); };
+  const formatBranchTime = date => new Date(date).toLocaleTimeString('en-PH', { timeZone: 'Asia/Manila', hour: 'numeric', minute: '2-digit', hour12: true });
 
   const getAuthHeaders = () => {
     const token = localStorage.getItem('token');
@@ -75,8 +115,12 @@ const Admin = () => {
           if (response.data.success) { setReservations(response.data.reservations); setStats(prev => ({ ...prev, totalReservations: response.data.reservations.length, pendingReservations: response.data.reservations.filter(r => ['pending','pending_approval'].includes(r.status)).length })); }
         }
       } else if (activeTab === 'menu') {
-        const response = await api.get('/api/menu');
-        if (response.data.success) setMenuItems(response.data.items);
+        const [currentResponse, archiveResponse] = await Promise.all([
+          api.get('/api/admin/menu', { headers: getAuthHeaders() }),
+          api.get('/api/admin/menu/archive', { headers: getAuthHeaders() })
+        ]);
+        if (currentResponse.data.success) setMenuItems(currentResponse.data.items);
+        if (archiveResponse.data.success) setArchivedMenuItems(archiveResponse.data.items);
       }
     } catch (error) {
       alert('Error fetching data: ' + error.message);
@@ -103,7 +147,7 @@ const Admin = () => {
     const price = Number(priceText);
     const description = menuDraft.description.trim();
     if (name.length < 2 || name.length > 80) return setMenuError('Name must be between 2 and 80 characters.');
-    if (!/[\p{L}\p{N}]/u.test(name)) return setMenuError('Item name must include at least one letter or number.');
+    if (!/^[\p{L} ]+$/u.test(name)) return setMenuError('Item name can contain letters and spaces only.');
     if (!/^\d+(?:\.\d{0,2})?$/.test(priceText) || !Number.isFinite(price) || price < 1 || price > 100000) return setMenuError('Enter a valid price from ₱1 to ₱100,000, using numbers only.');
     if (description.length > 300) return setMenuError('Description must be 300 characters or fewer.');
     try {
@@ -119,8 +163,48 @@ const Admin = () => {
     try {
       await api.delete('/api/admin/menu/' + id, { headers: getAuthHeaders() });
       setMenuItems(items => items.filter(item => item.id !== id));
+      setArchivedMenuItems(items => [{ ...menuItems.find(item => item.id === id), active: false }, ...items]);
     } catch (error) {
       setMenuError(error.response?.data?.message || 'Could not remove menu item.');
+    }
+  };
+
+  const startEditingMenuItem = (item) => {
+    setEditingMenuId(item.id);
+    setEditingMenuDraft({ name: item.name, price: String(item.price), category: item.category, description: item.description || '', variants: (item.variants || []).map(variant => ({ ...variant, price: String(variant.price) })) });
+    setMenuError('');
+  };
+
+  const saveMenuItem = async (event, id) => {
+    event.preventDefault();
+    setMenuError('');
+    if (editingMenuDraft.name.trim().length < 2 || editingMenuDraft.name.trim().length > 80 || !/[\p{L}\p{N}]/u.test(editingMenuDraft.name.trim())) return setMenuError('Enter an item name between 2 and 80 characters.');
+    try {
+      const response = await api.put('/api/admin/menu/' + id, { ...editingMenuDraft, price: Number(editingMenuDraft.price), variants: editingMenuDraft.variants.map(variant => ({ ...variant, price: Number(variant.price) })) }, { headers: getAuthHeaders() });
+      setMenuItems(items => items.map(item => item.id === id ? response.data.item : item));
+      setEditingMenuId(null);
+      setEditingMenuDraft(null);
+    } catch (error) {
+      setMenuError(error.response?.data?.message || 'Could not update menu item.');
+    }
+  };
+
+  const toggleMenuAvailability = async (item) => {
+    try {
+      const response = await api.put(`/api/admin/menu/${item.id}/availability`, { available: !item.available }, { headers: getAuthHeaders() });
+      setMenuItems(items => items.map(current => current.id === item.id ? response.data.item : current));
+    } catch (error) {
+      setMenuError(error.response?.data?.message || 'Could not update item availability.');
+    }
+  };
+
+  const restoreMenuItem = async (item) => {
+    try {
+      const response = await api.put(`/api/admin/menu/${item.id}/restore`, {}, { headers: getAuthHeaders() });
+      setArchivedMenuItems(items => items.filter(current => current.id !== item.id));
+      setMenuItems(items => [...items, response.data.item].sort((a, b) => Number(a.id) - Number(b.id)));
+    } catch (error) {
+      setMenuError(error.response?.data?.message || 'Could not restore menu item.');
     }
   };
 
@@ -260,15 +344,24 @@ const Admin = () => {
           <section className="menu-management">
             <div className="section-header"><h2>Menu Management</h2><button className="btn btn-secondary" onClick={fetchData} disabled={loading}>Refresh</button></div>
             {menuError && <div className="error-message" role="alert">{menuError}</div>}
-            <form className="admin-menu-form" onSubmit={addMenuItem} noValidate>
-              <div className="form-group"><label htmlFor="menu-name">Item name</label><input id="menu-name" type="text" value={menuDraft.name} maxLength={80} required onChange={e => setMenuDraft({ ...menuDraft, name: e.target.value })} /></div>
-              <div className="form-group"><label htmlFor="menu-price">Price (₱)</label><input id="menu-price" type="text" inputMode="decimal" autoComplete="off" placeholder="e.g. 99.50" value={menuDraft.price} required onChange={e => { const value = e.target.value; if (/^\d*\.?\d{0,2}$/.test(value)) setMenuDraft({ ...menuDraft, price: value }); }} /></div>
-              <div className="form-group"><label htmlFor="menu-category">Category</label><select id="menu-category" value={menuDraft.category} onChange={e => setMenuDraft({ ...menuDraft, category: e.target.value })}>{['CHICKENWINGS','UNLIMITEDWINGS','DIPS','ADDONS','DRINKS'].map(category => <option key={category} value={category}>{category.replace(/([A-Z])/g, ' $1').trim()}</option>)}</select></div>
-              <div className="form-group full"><label htmlFor="menu-description">Description (optional)</label><textarea id="menu-description" rows="2" maxLength={300} value={menuDraft.description} onChange={e => setMenuDraft({ ...menuDraft, description: e.target.value })} /></div>
-              <button className="btn btn-primary" type="submit">Add menu item</button>
-            </form>
-            {menuItems.length ? <div className="admin-menu-items">{menuItems.map(item => <article key={item.id} className="admin-menu-item"><div><strong>{item.name}</strong><p>{item.category} · ₱{Number(item.price).toFixed(2)}</p></div><button type="button" onClick={() => removeMenuItem(item.id)}>Remove</button></article>)}</div> : <div className="empty-state"><h3>No custom menu items yet</h3><p>Add an item above to show it on the customer menu.</p></div>}
-          </section>
+            <div className="menu-view-tabs">
+              <button type="button" className={menuView==='current'?'active':''} onClick={()=>setMenuView('current')}>Current menu <span>{menuItems.length}</span></button>
+              <button type="button" className={menuView==='archive'?'active':''} onClick={()=>setMenuView('archive')}>Archived <span>{archivedMenuItems.length}</span></button>
+            </div>
+            {menuView==='current' && <>
+              <form className="admin-menu-form" onSubmit={addMenuItem} noValidate>
+                <div className="form-group"><label htmlFor="menu-name">Item name</label><input id="menu-name" type="text" value={menuDraft.name} maxLength={80} pattern="[\p{L} ]+" title="Use letters and spaces only" required onChange={e => setMenuDraft({ ...menuDraft, name: e.target.value.replace(/[^\p{L} ]/gu, '') })} /></div>
+                <div className="form-group"><label htmlFor="menu-price">Price (₱)</label><input id="menu-price" type="text" inputMode="decimal" autoComplete="off" placeholder="e.g. 99.50" value={menuDraft.price} required onChange={e => { const value = e.target.value; if (/^\d*\.?\d{0,2}$/.test(value)) setMenuDraft({ ...menuDraft, price: value }); }} /></div>
+                <div className="form-group"><label htmlFor="menu-category">Category</label><select id="menu-category" value={menuDraft.category} onChange={e => setMenuDraft({ ...menuDraft, category: e.target.value })}>{['CHICKENWINGS','UNLIMITEDWINGS','DIPS','ADDONS','DRINKS'].map(category => <option key={category} value={category}>{category.replace(/([A-Z])/g, ' $1').trim()}</option>)}</select></div>
+                <div className="form-group full"><label htmlFor="menu-description">Description (optional)</label><textarea id="menu-description" rows="2" maxLength={300} value={menuDraft.description} onChange={e => setMenuDraft({ ...menuDraft, description: e.target.value })} /></div>
+                <button className="btn btn-primary" type="submit">Add menu item</button>
+              </form>
+              {menuItems.length ? <div className="admin-menu-items">{menuItems.map(item => <article key={item.id} className={`admin-menu-item ${item.available ? '' : 'menu-item-unavailable'}`}>
+                <div className="admin-menu-item-summary"><div><strong>{item.name}</strong><p>{item.category} · ₱{Number(item.price).toFixed(2)}{item.isBuiltIn ? ' · Built-in' : ''}</p>{item.variants?.length > 0 && <small>{item.variants.map(option => `${option.label}: ₱${Number(option.price).toFixed(2)}`).join(' · ')}</small>}<span className={`menu-availability-pill ${item.available ? 'available' : ''}`}>{item.available ? 'Available to customers' : 'Currently unavailable'}</span></div><div className="admin-menu-item-actions"><button type="button" onClick={() => toggleMenuAvailability(item)}>{item.available ? 'Mark unavailable' : 'Make available'}</button><button type="button" onClick={() => editingMenuId === item.id ? (setEditingMenuId(null), setEditingMenuDraft(null)) : startEditingMenuItem(item)}>{editingMenuId === item.id ? 'Cancel' : 'Edit details'}</button><button type="button" className="archive-menu-button" onClick={() => removeMenuItem(item.id)}>Archive</button></div></div>
+                {editingMenuId === item.id && editingMenuDraft && <form className="admin-menu-edit-form" onSubmit={event => saveMenuItem(event, item.id)}><label>Item name<input required maxLength={80} value={editingMenuDraft.name} onChange={e => setEditingMenuDraft({ ...editingMenuDraft, name: e.target.value })} /></label><label>Base price<input required inputMode="decimal" value={editingMenuDraft.price} onChange={e => { const value=e.target.value; if (/^\d*\.?\d{0,2}$/.test(value)) setEditingMenuDraft({ ...editingMenuDraft, price: value }); }} /></label><label>Category<select value={editingMenuDraft.category} disabled={item.isBuiltIn} onChange={e => setEditingMenuDraft({ ...editingMenuDraft, category: e.target.value })}>{['CHICKENWINGS','UNLIMITEDWINGS','DIPS','ADDONS','DRINKS'].map(category => <option key={category} value={category}>{category.replace(/([A-Z])/g, ' $1').trim()}</option>)}</select></label><label className="edit-description-field">Description<textarea rows="2" maxLength={300} value={editingMenuDraft.description} onChange={e => setEditingMenuDraft({ ...editingMenuDraft, description: e.target.value })} /></label>{editingMenuDraft.variants.length > 0 && <div className="edit-variant-prices"><strong>Option prices</strong>{editingMenuDraft.variants.map((variant,index) => <label key={variant.label}>{variant.label}<input required inputMode="decimal" value={variant.price} onChange={e => { const value=e.target.value; if (/^\d*\.?\d{0,2}$/.test(value)) setEditingMenuDraft(draft => ({ ...draft, variants: draft.variants.map((option,optionIndex) => optionIndex === index ? { ...option, price: value } : option) })); }} /></label>)}</div>}<button className="btn btn-primary" type="submit">Save changes</button></form>}
+              </article>)}</div> : <div className="empty-state"><h3>No active menu items</h3></div>}
+            </>}
+            {menuView==='archive' && (archivedMenuItems.length ? <div className="admin-menu-items">{archivedMenuItems.map(item => <article key={item.id} className="admin-menu-item archived-menu-item"><div><div><strong>{item.name}</strong><p>{item.category} · ₱{Number(item.price).toFixed(2)}{item.isBuiltIn ? ' · Built-in' : ''}</p></div><button type="button" onClick={() => restoreMenuItem(item)}>Restore to current menu</button></div></article>)}</div> : <div className="empty-state"><h3>Archive is empty</h3><p>Items you archive will be listed here.</p></div>)}          </section>
         )}
 
         {activeTab === 'orders' && (
@@ -310,6 +403,7 @@ const Admin = () => {
                     <div className="card-body">
                       <div className="customer-info">
                         <p><strong>Customer:</strong> {order.user?.name || 'Guest'}</p>
+                        <p><strong>Order type:</strong> {{ dine_in: 'Dine in', pickup: 'Pick up for to go', delivery: 'Delivery' }[order.fulfillmentType || 'delivery']}</p>
                         <p>
                           <strong>Payment:</strong>{' '}
                           <span className={`payment-badge payment-${order.paymentMethod?.toLowerCase() || 'cod'}`}>
@@ -365,8 +459,8 @@ const Admin = () => {
           </div>
         )}
 
-        {activeTab === 'tables' && <section className="table-management"><div className="section-header"><h2>Table Management</h2><button className="btn btn-secondary" onClick={fetchData}>Refresh</button></div>{tableError&&<p role="alert">{tableError}</p>}<form className="admin-table-form" onSubmit={addTable}><label>Branch<select value={tableDraft.branch} onChange={e=>setTableDraft({...tableDraft,branch:e.target.value})}><option value="molino">Molino Blvd.</option><option value="ananda">Ananda Square</option></select></label><label>Table number<input required maxLength="12" value={tableDraft.number} onChange={e=>setTableDraft({...tableDraft,number:e.target.value.toUpperCase()})} placeholder="T-01"/></label><label>Seats<input type="number" min="1" max="30" value={tableDraft.capacity} onChange={e=>setTableDraft({...tableDraft,capacity:Number(e.target.value)})}/></label><button className="btn btn-primary">Add table</button></form><div className="admin-tables-grid">{tables.map(t=>{const b=t.bookings?.find(x=>x.state==='ACTIVE')||t.bookings?.[0];const r=b?.reservation;const occupied=b?.state==='ACTIVE';return <article className="admin-table-card" key={t._id}><header><b>Table {t.number}</b><span>{occupied?'OCCUPIED':r?'RESERVED':t.status}</span></header><p>{t.branch} · capacity {t.capacity}</p>{r&&<><p>{r.name} · {r.partySize} guests · #{String(r._id).slice(-6)}</p><p>Payment: {r.paymentStatus}</p>{occupied?<><p>Check in {new Date(r.checkedInAt||b.startsAt).toLocaleTimeString()}</p><strong>{timerText(r.diningDeadline||b.endsAt)}</strong><p>Deadline {new Date(r.diningDeadline||b.endsAt).toLocaleTimeString()}</p></>:<p>Reserved for {new Date(b.startsAt).toLocaleString('en-PH')}</p>}</>}{!r&&<select value={t.status} onChange={e=>changeTableStatus(t,e.target.value)}><option value="AVAILABLE">Available</option><option value="UNAVAILABLE">Unavailable</option><option value="CLEANING">Cleaning</option></select>}</article>})}</div>{tables.length===0&&<p className="empty-state">Configure actual tables here so customers can reserve.</p>}</section>}
-        {activeTab === 'reservations' && <div className="reservations-management"><div className="section-header"><h2>Reservation Management</h2><button className="btn btn-secondary" onClick={fetchData}>Refresh</button></div>{reservations.length===0?<div className="empty-state"><h3>No reservations yet</h3></div>:<div className="reservations-grid">{reservations.map(r=><article key={r._id} className="admin-reservation-card"><div className="card-header"><h4>#{r._id.slice(-7).toUpperCase()} · {r.partySize} guests · {r.status.replaceAll('_',' ')}</h4><p>{new Date(r.date).toLocaleDateString('en-PH')} {r.time} · {r.location}</p></div><div className="card-body"><p>{r.name} · {r.phone} · {r.email}</p><p>Table {r.table?.number||'unassigned'} · ₱{Number(r.subtotal||0).toFixed(2)}</p><p>{r.paymentMethod} · {r.paymentStatus} · {r.diningStatus}</p><ul>{(r.orderItems||[]).map((x,i)=><li key={i}>{x.quantity}× {x.name} · {x.classification}{x.flavors?.length?' · '+x.flavors.join(', '):''} · ₱{x.subtotal}</li>)}</ul>{r.initialFlavorSelections?.map(x=><p key={x.dinerNumber}>Diner {x.dinerNumber}: {x.flavors.map(f=>f.name).join(', ')}</p>)}{r.review&&<p>Review {r.review.rating}/5: {r.review.feedback}</p>}{r.status==='checked_in'&&<b>{timerText(r.diningDeadline)}</b>}</div><div className="card-footer admin-reservation-actions">{['pending','pending_approval'].includes(r.status)&&<><select id={'approve-'+r._id} defaultValue={r.table?._id||''}><option value="">Keep assigned table</option>{tables.filter(t=>t.branch===r.branch&&t.status==='AVAILABLE').map(t=><option value={t._id} key={t._id}>{t.number} ({t.capacity})</option>)}</select><button onClick={()=>runReservationAction(r._id,'approve',document.getElementById('approve-'+r._id)?.value||undefined)}>Approve</button><button onClick={()=>runReservationAction(r._id,'reject')}>Reject</button></>}{r.status==='confirmed'&&<><select id={'checkin-'+r._id} defaultValue={r.table?._id||''}><option value="">Select a table</option>{tables.filter(t=>t.branch===r.branch&&t.status==='AVAILABLE').map(t=><option value={t._id} key={t._id}>{t.number} ({t.capacity})</option>)}</select><button onClick={()=>runReservationAction(r._id,'check_in',document.getElementById('checkin-'+r._id)?.value||r.table?._id)}>Check in</button><button onClick={()=>runReservationAction(r._id,'no_show')}>No show</button></>}{r.status==='checked_in'&&<button onClick={()=>window.confirm('Confirm that the guests have finished dining?')&&runReservationAction(r._id,'complete')}>Complete dining</button>}{['UNPAID','PENDING'].includes(r.paymentStatus)&&<button onClick={()=>{if(!window.confirm('Confirm that you verified and received this payment?'))return;const reference=r.paymentMethod==='GCASH'?window.prompt('Enter the verified GCash transaction reference:')||'':'';if(r.paymentMethod==='GCASH'&&!reference.trim())return;api.post('/api/admin/reservations/'+r._id+'/payment',{reference}, {headers:getAuthHeaders()}).then(fetchData).catch(e=>alert(e.response?.data?.message||'Could not confirm payment.'));}}>Confirm payment received</button>}</div></article>)}</div>}</div>}
+        {activeTab === 'tables' && <section className="table-management"><div className="section-header"><h2>Table Management</h2><button className="btn btn-secondary" onClick={fetchData}>Refresh</button></div><label className="table-date-filter">View reservations for date<input type="date" value={tableDate} onChange={e=>setTableDate(e.target.value)}/></label>{tableError&&<p role="alert">{tableError}</p>}<form className="admin-table-form" onSubmit={addTable}><label>Branch<select value={tableDraft.branch} onChange={e=>setTableDraft({...tableDraft,branch:e.target.value})}><option value="molino">Molino Blvd.</option><option value="ananda">Ananda Square</option></select></label><label>Table number<input required maxLength="12" value={tableDraft.number} onChange={e=>setTableDraft({...tableDraft,number:e.target.value.toUpperCase()})} placeholder="T-01"/></label><label>Seats<input type="number" min="1" max="30" value={tableDraft.capacity} onChange={e=>setTableDraft({...tableDraft,capacity:Number(e.target.value)})}/></label><button className="btn btn-primary">Add table</button></form><div className="admin-tables-grid">{tables.map(t=>{const b=getTableDisplayBooking(t);const r=b?.reservation;const occupied=b?.state==='ACTIVE';return <article className="admin-table-card" key={t._id}><header><b>Table {t.number}</b><span>{occupied?'OCCUPIED':r?'RESERVED':t.status}</span></header><p>{t.branch} · capacity {t.capacity}</p>{r&&<><p>{r.name} · {r.partySize} guests · #{String(r._id).slice(-6)}</p><p>Payment: {r.paymentStatus}</p>{occupied?<><p>Check in {formatBranchTime(r.checkedInAt||b.startsAt)}</p><strong>{timerText(r.diningDeadline||b.endsAt)}</strong><p>Deadline {formatBranchTime(r.diningDeadline||b.endsAt)}</p></>:<p>Reserved for {new Date(b.startsAt).toLocaleString('en-PH',{timeZone:'Asia/Manila'})}</p>}</>}{!r&&<select value={t.status} onChange={e=>changeTableStatus(t,e.target.value)}><option value="AVAILABLE">Available</option><option value="UNAVAILABLE">Unavailable</option><option value="CLEANING">Cleaning</option></select>}</article>})}</div>{tables.length===0&&<p className="empty-state">Configure actual tables here so customers can reserve.</p>}</section>}
+        {activeTab === 'reservations' && <div className="reservations-management"><div className="section-header"><h2>Reservation Management</h2><button className="btn btn-secondary" onClick={fetchData}>Refresh</button></div>{reservations.length===0?<div className="empty-state"><h3>No reservations yet</h3></div>:<div className="reservations-grid">{reservations.map(r=><article key={r._id} className="admin-reservation-card"><div className="card-header"><h4>#{r._id.slice(-7).toUpperCase()} · {r.partySize} guests · {r.status.replaceAll('_',' ')}</h4><p>{new Date(r.date).toLocaleDateString('en-PH')} · {formatReservationTime(r.time)} · {r.location}</p></div><div className="card-body"><p>{r.name} · {r.phone} · {r.email}</p><p>Table {r.table?.number||'unassigned'} · ₱{Number(r.subtotal||0).toFixed(2)}</p><p>{r.paymentMethod} · {r.paymentStatus} · {r.diningStatus}</p><ul>{(r.orderItems||[]).map((x,i)=><li key={i}>{x.quantity}× {x.name} · {x.classification}{x.flavors?.length?' · '+x.flavors.join(', '):''} · ₱{x.subtotal}</li>)}</ul>{r.initialFlavorSelections?.map(x=><p key={x.dinerNumber}>Diner {x.dinerNumber}: {x.flavors.map(f=>f.name).join(', ')}</p>)}{r.review&&<p>Review {r.review.rating}/5: {r.review.feedback}</p>}{r.status==='checked_in'&&<b>{timerText(r.diningDeadline)}</b>}</div><div className="card-footer admin-reservation-actions">{['pending','pending_approval'].includes(r.status)&&<><select id={'approve-'+r._id} defaultValue={r.table?._id||''}><option value="">Keep assigned table</option>{tables.filter(t=>adminTableAvailableFor(t,r,false)).map(t=><option value={t._id} key={t._id}>{t.number} ({t.capacity})</option>)}</select><button onClick={()=>runReservationAction(r._id,'approve',document.getElementById('approve-'+r._id)?.value||undefined)}>Approve</button><button onClick={()=>runReservationAction(r._id,'reject')}>Reject</button></>}{r.status==='confirmed'&&<><select id={'checkin-'+r._id} defaultValue={r.table?._id||''}><option value="">Select a table</option>{tables.filter(t=>adminTableAvailableFor(t,r,true)).map(t=><option value={t._id} key={t._id}>{t.number} ({t.capacity})</option>)}</select><button onClick={()=>runReservationAction(r._id,'check_in',document.getElementById('checkin-'+r._id)?.value||r.table?._id)} disabled={reservationDateKey(r)!==todayManila()} title={reservationDateKey(r)!==todayManila()?'Check-in is only available on the reservation date':''}>Check in</button><button onClick={()=>runReservationAction(r._id,'no_show')}>No show</button></>}{r.status==='checked_in'&&<button onClick={()=>window.confirm('Confirm that the guests have finished dining?')&&runReservationAction(r._id,'complete')}>Complete dining</button>}{['checked_in','completed'].includes(r.status)&&['UNPAID','PENDING'].includes(r.paymentStatus)&&<button onClick={()=>{if(!window.confirm('Confirm that you verified and received this payment?'))return;const reference=r.paymentMethod==='GCASH'?window.prompt('Enter the verified GCash transaction reference:')||'':'';if(r.paymentMethod==='GCASH'&&!reference.trim())return;api.post('/api/admin/reservations/'+r._id+'/payment',{reference}, {headers:getAuthHeaders()}).then(fetchData).catch(e=>alert(e.response?.data?.message||'Could not confirm payment.'));}}>Confirm payment received</button>}</div></article>)}</div>}</div>}
       </div>
     </div>
   );

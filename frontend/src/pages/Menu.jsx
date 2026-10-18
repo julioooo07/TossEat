@@ -5,9 +5,10 @@ import { useChatbot } from '../context/ChatbotContext';
 import { menuItems, CHICKEN_WING_FLAVORS } from '../data/menuItems';
 import './Menu.css';
 
-const keepCurrentMenuItems = (items) => items.filter(item =>
-  menuItems.some(menuItem => String(menuItem.id) === String(item.id))
-);
+const keepCurrentMenuItems = (items, catalog = menuItems) => {
+  const catalogById = new Map(catalog.map(item => [String(item.id), item]));
+  return items.map(item => catalogById.get(String(item.id))).filter(item => item && item.available !== false);
+};
 
 const Menu = () => {
   const { user, api } = useAuth();
@@ -39,8 +40,18 @@ const Menu = () => {
 
   useEffect(() => {
     api.get('/api/menu').then(response => {
-      if (response.data.success && response.data.items?.length) {
-        setAvailableMenuItems([...menuItems, ...response.data.items.map(item => ({ ...item, id: item.id, popular: false }))]);
+      if (response.data.success) {
+        const managedItems = response.data.items || [];
+        const byId = new Map(managedItems.map(item => [String(item.id), item]));
+        const builtInItems = menuItems.flatMap(item => {
+          const managed = byId.get(String(item.id));
+          if (!managed?.active) return [];
+          return [{ ...item, ...managed, id: item.id, description: managed.description || item.description, image: item.image, variants: managed.variants?.length ? managed.variants : item.variants, hasFlavor: item.hasFlavor, flavors: item.flavors, flavorGroups: item.flavorGroups, extraFlavorPrice: item.extraFlavorPrice }];
+        });
+        const customItems = managedItems
+          .filter(item => item.active && !menuItems.some(baseItem => String(baseItem.id) === String(item.id)))
+          .map(item => ({ ...item, id: item.id, popular: false }));
+        setAvailableMenuItems([...builtInItems, ...customItems]);
       }
     }).catch(() => {});
   }, [api]);
@@ -53,7 +64,7 @@ const Menu = () => {
       
       if (storedRecs && recommendations.length === 0) {
         try {
-          const parsedRecs = keepCurrentMenuItems(JSON.parse(storedRecs));
+          const parsedRecs = keepCurrentMenuItems(JSON.parse(storedRecs), availableMenuItems);
           if (setRecommendations) {
             setRecommendations(parsedRecs);
           }
@@ -61,7 +72,7 @@ const Menu = () => {
         }
       }
     }
-  }, [user, recommendations.length, setRecommendations]);
+  }, [user, recommendations.length, setRecommendations, availableMenuItems]);
 
   // Second useEffect - handle URL parameters and auto-show recommendations
   useEffect(() => {
@@ -88,7 +99,7 @@ const Menu = () => {
       
       if (storedRecs) {
         try {
-          const parsedRecs = keepCurrentMenuItems(JSON.parse(storedRecs));
+          const parsedRecs = keepCurrentMenuItems(JSON.parse(storedRecs), availableMenuItems);
           if (setRecommendations) {
             setRecommendations(parsedRecs);
             setShowRecommendations(true);
@@ -113,7 +124,13 @@ const Menu = () => {
         }
       }
     }
-  }, [recommendations, user, setRecommendations, isInitialLoad]);
+  }, [recommendations, user, setRecommendations, isInitialLoad, availableMenuItems]);
+
+  useEffect(() => {
+    if (activeCategory === 'RECOMMENDED' && showRecommendations) {
+      setFilteredItems(keepCurrentMenuItems(recommendations, availableMenuItems));
+    }
+  }, [activeCategory, showRecommendations, recommendations, availableMenuItems]);
 
   // Third useEffect - handle filtering logic
   useEffect(() => {
@@ -326,6 +343,10 @@ const Menu = () => {
   };
 
   const handleAddToCart = async (item) => {
+    if (item.available === false) {
+      alert('This item is currently unavailable. Please choose another menu item.');
+      return;
+    }
     if (!user) {
       alert('Please log in to add items to cart');
       return;
@@ -445,10 +466,11 @@ const Menu = () => {
             const variantLabel = selectedVariants[item.id] ?? (hasVariants ? item.variants[0].label : null);
 
             return (
-              <div key={item.id} className="menu-card">
+              <div key={item.id} className={`menu-card ${item.available === false ? 'unavailable' : ''}`}>
                 <div className="card-image">
                   <img src={item.image} alt={item.name} />
                   {item.popular && <span className="popular-badge">Popular</span>}
+                  {item.available === false && <span className="unavailable-badge">Currently unavailable</span>}
                 </div>
 
                 <div className="card-content">
@@ -542,9 +564,9 @@ const Menu = () => {
                   <button
                     className="add-btn-small"
                     onClick={() => handleAddToCart(item)}
-                    disabled={addingItem === item.id}
+                    disabled={addingItem === item.id || item.available === false}
                   >
-                    {addingItem === item.id ? 'Adding…' : item.isBilao ? 'Select Flavors' : item.isUnlimitedWings ? 'Add 1 person' : 'Add'}
+                    {item.available === false ? 'Unavailable' : addingItem === item.id ? 'Adding…' : item.isBilao ? 'Select Flavors' : item.isUnlimitedWings ? 'Add 1 person' : 'Add'}
                   </button>
                 </div>
               </div>
