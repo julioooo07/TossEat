@@ -8,6 +8,13 @@ const Admin = () => {
   const [activeTab, setActiveTab] = useState(() => new URLSearchParams(window.location.search).get('tab') === 'menu' ? 'menu' : 'orders');
   const [orders, setOrders] = useState([]);
   const [reservations, setReservations] = useState([]);
+  const [reservationHistory, setReservationHistory] = useState([]);
+  const [reservationHistoryDate, setReservationHistoryDate] = useState('');
+  const [reservationHistoryPage, setReservationHistoryPage] = useState(1);
+  const [reservationHistoryPages, setReservationHistoryPages] = useState(1);
+  const [reservationHistoryTotal, setReservationHistoryTotal] = useState(0);
+  const [reservationHistoryLoading, setReservationHistoryLoading] = useState(false);
+  const [reservationHistoryError, setReservationHistoryError] = useState('');
   const [tables, setTables] = useState([]);
   const [tableDraft, setTableDraft] = useState({ branch: 'molino', number: '', capacity: 2 });
   const [tableDate, setTableDate] = useState(() => { const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date()).map(part => [part.type, part.value])); return `${parts.year}-${parts.month}-${parts.day}`; });
@@ -112,7 +119,7 @@ const Admin = () => {
         if (tableResponse.data.success) setTables(tableResponse.data.tables || []);
         if (activeTab === 'reservations') {
           const response = await api.get('/api/admin/reservations', { headers: getAuthHeaders() });
-          if (response.data.success) { setReservations(response.data.reservations); setStats(prev => ({ ...prev, totalReservations: response.data.reservations.length, pendingReservations: response.data.reservations.filter(r => ['pending','pending_approval'].includes(r.status)).length })); }
+          if (response.data.success) { setReservations(response.data.reservations); setStats(prev => ({ ...prev, totalReservations: response.data.totalReservations ?? response.data.reservations.length, pendingReservations: response.data.reservations.filter(r => ['pending','pending_approval'].includes(r.status)).length })); }
         }
       } else if (activeTab === 'menu') {
         const [currentResponse, archiveResponse] = await Promise.all([
@@ -138,6 +145,27 @@ const Admin = () => {
       fetchData();
     }
   }, [user, activeTab, fetchData]);
+
+  useEffect(() => {
+    if (!user?.isAdmin || activeTab !== 'reservations') return undefined;
+    let cancelled = false;
+    setReservationHistoryLoading(true);
+    setReservationHistoryError('');
+    api.get('/api/admin/reservations/history', {
+      params: { page: reservationHistoryPage, limit: 8, ...(reservationHistoryDate ? { date: reservationHistoryDate } : {}) },
+      headers: getAuthHeaders()
+    }).then(response => {
+      if (cancelled || !response.data.success) return;
+      setReservationHistory(response.data.reservations || []);
+      setReservationHistoryPages(Math.max(1, response.data.pagination?.pages || 1));
+      setReservationHistoryTotal(response.data.pagination?.total || 0);
+    }).catch(error => {
+      if (!cancelled) setReservationHistoryError(error.response?.data?.message || 'Could not load reservation history.');
+    }).finally(() => {
+      if (!cancelled) setReservationHistoryLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [user, activeTab, api, reservationHistoryDate, reservationHistoryPage]);
 
   const addMenuItem = async (event) => {
     event.preventDefault();
@@ -461,6 +489,24 @@ const Admin = () => {
 
         {activeTab === 'tables' && <section className="table-management"><div className="section-header"><h2>Table Management</h2><button className="btn btn-secondary" onClick={fetchData}>Refresh</button></div><label className="table-date-filter">View reservations for date<input type="date" value={tableDate} onChange={e=>setTableDate(e.target.value)}/></label>{tableError&&<p role="alert">{tableError}</p>}<form className="admin-table-form" onSubmit={addTable}><label>Branch<select value={tableDraft.branch} onChange={e=>setTableDraft({...tableDraft,branch:e.target.value})}><option value="molino">Molino Blvd.</option><option value="ananda">Ananda Square</option></select></label><label>Table number<input required maxLength="12" value={tableDraft.number} onChange={e=>setTableDraft({...tableDraft,number:e.target.value.toUpperCase()})} placeholder="T-01"/></label><label>Seats<input type="number" min="1" max="30" value={tableDraft.capacity} onChange={e=>setTableDraft({...tableDraft,capacity:Number(e.target.value)})}/></label><button className="btn btn-primary">Add table</button></form><div className="admin-tables-grid">{tables.map(t=>{const b=getTableDisplayBooking(t);const r=b?.reservation;const occupied=b?.state==='ACTIVE';return <article className="admin-table-card" key={t._id}><header><b>Table {t.number}</b><span>{occupied?'OCCUPIED':r?'RESERVED':t.status}</span></header><p>{t.branch} · capacity {t.capacity}</p>{r&&<><p>{r.name} · {r.partySize} guests · #{String(r._id).slice(-6)}</p><p>Payment: {r.paymentStatus}</p>{occupied?<><p>Check in {formatBranchTime(r.checkedInAt||b.startsAt)}</p><strong>{timerText(r.diningDeadline||b.endsAt)}</strong><p>Deadline {formatBranchTime(r.diningDeadline||b.endsAt)}</p></>:<p>Reserved for {new Date(b.startsAt).toLocaleString('en-PH',{timeZone:'Asia/Manila'})}</p>}</>}{!r&&<select value={t.status} onChange={e=>changeTableStatus(t,e.target.value)}><option value="AVAILABLE">Available</option><option value="UNAVAILABLE">Unavailable</option><option value="CLEANING">Cleaning</option></select>}</article>})}</div>{tables.length===0&&<p className="empty-state">Configure actual tables here so customers can reserve.</p>}</section>}
         {activeTab === 'reservations' && <div className="reservations-management"><div className="section-header"><h2>Reservation Management</h2><button className="btn btn-secondary" onClick={fetchData}>Refresh</button></div>{reservations.length===0?<div className="empty-state"><h3>No reservations yet</h3></div>:<div className="reservations-grid">{reservations.map(r=><article key={r._id} className="admin-reservation-card"><div className="card-header"><h4>#{r._id.slice(-7).toUpperCase()} · {r.partySize} guests · {r.status.replaceAll('_',' ')}</h4><p>{new Date(r.date).toLocaleDateString('en-PH')} · {formatReservationTime(r.time)} · {r.location}</p></div><div className="card-body"><p>{r.name} · {r.phone} · {r.email}</p><p>Table {r.table?.number||'unassigned'} · ₱{Number(r.subtotal||0).toFixed(2)}</p><p>{r.paymentMethod} · {r.paymentStatus} · {r.diningStatus}</p><ul>{(r.orderItems||[]).map((x,i)=><li key={i}>{x.quantity}× {x.name} · {x.classification}{x.flavors?.length?' · '+x.flavors.join(', '):''} · ₱{x.subtotal}</li>)}</ul>{r.initialFlavorSelections?.map(x=><p key={x.dinerNumber}>Diner {x.dinerNumber}: {x.flavors.map(f=>f.name).join(', ')}</p>)}{r.review&&<p>Review {r.review.rating}/5: {r.review.feedback}</p>}{r.status==='checked_in'&&<b>{timerText(r.diningDeadline)}</b>}</div><div className="card-footer admin-reservation-actions">{['pending','pending_approval'].includes(r.status)&&<><select id={'approve-'+r._id} defaultValue={r.table?._id||''}><option value="">Keep assigned table</option>{tables.filter(t=>adminTableAvailableFor(t,r,false)).map(t=><option value={t._id} key={t._id}>{t.number} ({t.capacity})</option>)}</select><button onClick={()=>runReservationAction(r._id,'approve',document.getElementById('approve-'+r._id)?.value||undefined)}>Approve</button><button onClick={()=>runReservationAction(r._id,'reject')}>Reject</button></>}{r.status==='confirmed'&&<><select id={'checkin-'+r._id} defaultValue={r.table?._id||''}><option value="">Select a table</option>{tables.filter(t=>adminTableAvailableFor(t,r,true)).map(t=><option value={t._id} key={t._id}>{t.number} ({t.capacity})</option>)}</select><button onClick={()=>runReservationAction(r._id,'check_in',document.getElementById('checkin-'+r._id)?.value||r.table?._id)} disabled={reservationDateKey(r)!==todayManila()} title={reservationDateKey(r)!==todayManila()?'Check-in is only available on the reservation date':''}>Check in</button><button onClick={()=>runReservationAction(r._id,'no_show')}>No show</button></>}{r.status==='checked_in'&&<button onClick={()=>window.confirm('Confirm that the guests have finished dining?')&&runReservationAction(r._id,'complete')}>Complete dining</button>}{['checked_in','completed'].includes(r.status)&&['UNPAID','PENDING'].includes(r.paymentStatus)&&<button onClick={()=>{if(!window.confirm('Confirm that you verified and received this payment?'))return;const reference=r.paymentMethod==='GCASH'?window.prompt('Enter the verified GCash transaction reference:')||'':'';if(r.paymentMethod==='GCASH'&&!reference.trim())return;api.post('/api/admin/reservations/'+r._id+'/payment',{reference}, {headers:getAuthHeaders()}).then(fetchData).catch(e=>alert(e.response?.data?.message||'Could not confirm payment.'));}}>Confirm payment received</button>}</div></article>)}</div>}</div>}
+        {activeTab === 'reservations' && <section className="reservation-history-section">
+          <div className="section-header"><div><h2>Reservation History</h2><p>Finished, cancelled, rejected, and no-show reservations.</p></div></div>
+          <div className="reservation-history-toolbar">
+            <label>Reservation date<input type="date" value={reservationHistoryDate} onChange={event => { setReservationHistoryDate(event.target.value); setReservationHistoryPage(1); }} /></label>
+            {reservationHistoryDate && <button type="button" className="btn btn-outline" onClick={() => { setReservationHistoryDate(''); setReservationHistoryPage(1); }}>Clear date</button>}
+          </div>
+          {reservationHistoryError && <p className="reservation-history-error" role="alert">{reservationHistoryError}</p>}
+          {reservationHistoryLoading ? <p className="empty-state">Loading reservation history…</p> : reservationHistory.length === 0 ? <div className="empty-state"><h3>No reservation history found</h3><p>{reservationHistoryDate ? 'Try another date or clear the date filter.' : 'Completed or closed reservations will appear here.'}</p></div> : <div className="reservations-grid reservation-history-grid">
+            {reservationHistory.map(reservation => <article key={reservation._id} className={`admin-reservation-card status-${reservation.status}`}>
+              <div className="card-header"><h4>#{reservation._id.slice(-7).toUpperCase()} · {reservation.partySize} guests · {reservation.status.replaceAll('_', ' ')}</h4><p>{new Date(reservation.date).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila', year: 'numeric', month: 'short', day: 'numeric' })} · {formatReservationTime(reservation.time)}</p></div>
+              <div className="card-body"><p><strong>Customer:</strong> {reservation.name || reservation.user?.name || 'Customer'} · {reservation.phone}</p><p><strong>Branch:</strong> {reservation.location} · <strong>Table:</strong> {reservation.table?.number || 'Not assigned'}</p><p><strong>Total:</strong> {formatPrice(Number(reservation.subtotal || 0))} · <strong>Payment:</strong> {reservation.paymentStatus}</p>
+                {reservation.orderItems?.length > 0 && <ul>{reservation.orderItems.map((item, index) => <li key={`${item.itemId}-${index}`}>{item.quantity}× {item.name}{item.size ? ` · ${item.size}` : ''}</li>)}</ul>}
+                {reservation.review && <p><strong>Review:</strong> {reservation.review.rating}/5 · {reservation.review.feedback}</p>}
+              </div>
+            </article>)}
+          </div>}
+          <div className="reservation-history-pagination"><span>{reservationHistoryTotal} record{reservationHistoryTotal === 1 ? '' : 's'} · Page {reservationHistoryPage} of {reservationHistoryPages}</span><div><button type="button" className="btn btn-outline" disabled={reservationHistoryPage <= 1 || reservationHistoryLoading} onClick={() => setReservationHistoryPage(page => Math.max(1, page - 1))}>Previous</button><button type="button" className="btn btn-outline" disabled={reservationHistoryPage >= reservationHistoryPages || reservationHistoryLoading} onClick={() => setReservationHistoryPage(page => Math.min(reservationHistoryPages, page + 1))}>Next</button></div></div>
+        </section>}
       </div>
     </div>
   );

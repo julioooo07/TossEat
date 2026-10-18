@@ -1028,16 +1028,43 @@ app.put('/api/admin/orders/:id/status', isAdmin, async (req, res) => {
 
 app.get('/api/admin/reservations', isAdmin, async (req, res) => {
   try {
-    const reservations = await Reservation.find({})
-      .sort({ date: 1, time: 1 })
-      .populate('user', 'name email')
-      .populate('table', 'branch number capacity status')
-      .populate('review');
+    const [reservations, totalReservations] = await Promise.all([
+      Reservation.find({ status: { $nin: ['completed', 'cancelled', 'rejected', 'no_show'] } })
+        .sort({ date: 1, time: 1 })
+        .populate('user', 'name email')
+        .populate('table', 'branch number capacity status')
+        .populate('review'),
+      Reservation.countDocuments({})
+    ]);
     
-    res.json({ success: true, reservations });
+    res.json({ success: true, reservations, totalReservations });
   } catch (err) {
     console.error('Admin reservations request failed');
     res.status(500).json({ success: false, message: 'Failed to fetch reservations' });
+  }
+});
+
+app.get('/api/admin/reservations/history', isAdmin, async (req, res) => {
+  try {
+    const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(25, Math.max(1, Number.parseInt(req.query.limit, 10) || 10));
+    const filter = { status: { $in: ['completed', 'cancelled', 'rejected', 'no_show'] } };
+    if (req.query.date) {
+      const date = String(req.query.date);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return res.status(400).json({ success: false, message: 'Choose a valid reservation date.' });
+      const start = new Date(`${date}T00:00:00.000Z`);
+      if (Number.isNaN(start.getTime()) || start.toISOString().slice(0, 10) !== date) return res.status(400).json({ success: false, message: 'Choose a valid reservation date.' });
+      filter.date = { $gte: start, $lt: new Date(start.getTime() + 24 * 60 * 60 * 1000) };
+    }
+    const [reservations, total] = await Promise.all([
+      Reservation.find(filter).sort({ date: -1, time: -1, updatedAt: -1 }).skip((page - 1) * limit).limit(limit)
+        .populate('user', 'name email').populate('table', 'branch number capacity').populate('review'),
+      Reservation.countDocuments(filter)
+    ]);
+    res.json({ success: true, reservations, pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
+  } catch (err) {
+    console.error('Admin reservation history request failed');
+    res.status(500).json({ success: false, message: 'Failed to load reservation history.' });
   }
 });
 
