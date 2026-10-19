@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
@@ -26,14 +26,10 @@ const Checkout = () => {
   });
   const [loading, setLoading] = useState(false);
 
-  const formatPrice = (price) => {
-    return `₱${price.toFixed(2)}`;
-  };
+  const formatPrice = (price) => `₱${Number(price || 0).toFixed(2)}`;
 
-  const taxRate = 0.12;
   const subtotal = cart?.total || 0;
-  const tax = subtotal * taxRate;
-  const total = subtotal + tax;
+  const total = subtotal;
 
 const handleInputChange = (e) => {
   const { name, value } = e.target;
@@ -139,10 +135,6 @@ const handleInputChange = (e) => {
             <div className="summary-row">
               <span>Subtotal:</span>
               <span>{formatPrice(subtotal)}</span>
-            </div>
-            <div className="summary-row">
-              <span>VAT (12%):</span>
-              <span>{formatPrice(tax)}</span>
             </div>
             <div className="summary-row total">
               <span>Total:</span>

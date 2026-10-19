@@ -237,3 +237,4 @@
   .stats-grid .stat-card { flex-direction: column; text-align: center; }
   .profile-actions, .support-actions { flex-direction: column; }
 }
+.stats-grid .stat-icon { font-size: .85rem; font-weight: 800; letter-spacing: .04em; }

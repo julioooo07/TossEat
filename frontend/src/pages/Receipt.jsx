@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import './Receipt.css'; 
 
@@ -9,9 +9,8 @@ const Receipt = () => {
   const paymentDetails = location.state?.paymentDetails || order?.paymentDetails || {};
   const fulfillmentLabels = { dine_in: 'Dine in at the restaurant', pickup: 'Pick up for to go', delivery: 'Delivery' };
 
-  const formatPrice = (price) => {
-    return `₱${parseFloat(price || 0).toFixed(2)}`;
-  };
+  const formatPrice = (price) => `₱${Number(price || 0).toFixed(2)}`;
+  const orderTotal = order?.items?.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0), 0) ?? Number(order?.total || 0);
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-PH', {
@@ -71,16 +70,12 @@ const Receipt = () => {
           <h3>Payment Summary</h3>
           <div className="receipt-summary">
             <div className="summary-row">
-              <span>Subtotal:</span>
-              <span>{formatPrice(order.total / 1.12)}</span>
-            </div>
-            <div className="summary-row">
-              <span>VAT (12%):</span>
-              <span>{formatPrice(order.total * 0.12)}</span>
+              <span>Order subtotal:</span>
+              <span>{formatPrice(orderTotal)}</span>
             </div>
             <div className="summary-row total">
               <span>Total Amount:</span>
-              <span>{formatPrice(order.total)}</span>
+              <span>{formatPrice(orderTotal)}</span>
             </div>
           </div>
         </div>

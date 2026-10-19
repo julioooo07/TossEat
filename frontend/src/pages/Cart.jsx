@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { Link } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
@@ -8,9 +8,7 @@ const Cart = () => {
   const { cart, updateCartItem, removeFromCart, clearCart } = useCart();
   const { user } = useAuth();
 
-  const formatPrice = (price) => {
-    return `₱${price.toFixed(2)}`;
-  };
+  const formatPrice = (price) => `₱${Number(price || 0).toFixed(2)}`;
 
   if (!user) {
     return (
@@ -52,10 +50,8 @@ const Cart = () => {
     }
   };
 
-  const taxRate = 0.12;
   const subtotal = cart.total || 0;
-  const tax = subtotal * taxRate;
-  const total = subtotal + tax;
+  const total = subtotal;
 
   return (
     <div className="cart-container">
@@ -115,10 +111,6 @@ const Cart = () => {
             <div className="summary-row">
               <span>Subtotal:</span>
               <span>{formatPrice(subtotal)}</span>
-            </div>
-            <div className="summary-row">
-              <span>VAT (12%):</span>
-              <span>{formatPrice(tax)}</span>
             </div>
             <div className="summary-row total">
               <span>Total:</span>

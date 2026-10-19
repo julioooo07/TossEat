@@ -1,4 +1,4 @@
-
+﻿
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -218,9 +218,8 @@ const Dashboard = () => {
     setModalSuccess('');
   };
 
-  const formatPrice = (price) => {
-    return `â‚±${parseFloat(price || 0).toFixed(2)}`;
-  };
+  const formatPrice = (price) => `₱${Number(price || 0).toFixed(2)}`;
+  const orderTotal = (order) => order.items?.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0), 0) ?? Number(order.total || 0);
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-PH', {
@@ -415,7 +414,7 @@ const Dashboard = () => {
       </div>
       <div className="stats-grid">
         <div className="stat-card">
-          <div className="stat-icon">ðŸ“¦</div>
+          <div className="stat-icon" aria-label="Orders" title="Orders">ORD</div>
           <div className="stat-info">
             <h3>{stats.totalOrders}</h3>
             <p>Total Orders</p>
@@ -426,7 +425,7 @@ const Dashboard = () => {
         </div>
 
         <div className="stat-card">
-          <div className="stat-icon">ðŸ†</div>
+          <div className="stat-icon" aria-label="Reservations" title="Reservations">RES</div>
           <div className="stat-info">
             <h3>{stats.totalReservations}</h3>
             <p>Reservations</p>
@@ -437,7 +436,7 @@ const Dashboard = () => {
         </div>
 
         <div className="stat-card">
-          <div className="stat-icon">ðŸ›’</div>
+          <div className="stat-icon" aria-label="Shopping cart" title="Shopping cart">CART</div>
           <div className="stat-info">
             <h3>{cart?.items?.length || 0}</h3>
             <p>Cart Items</p>
@@ -453,7 +452,7 @@ const Dashboard = () => {
         <div className="recent-orders">
           <div className="section-header">
             <h2>Recent Orders</h2>
-            <Link to="/orders" className="view-all-link">View All â†’</Link>
+            <Link to="/orders" className="view-all-link">View All →</Link>
           </div>
           
           {recentOrders.length === 0 ? (
@@ -483,7 +482,7 @@ const Dashboard = () => {
                       {getOrderStatusText(order.status)}
                     </div>
                     <div className="order-amount">
-                      {formatPrice(order.total)}
+                      {formatPrice(orderTotal(order))}
                     </div>
                   </div>
                 </div>
@@ -496,7 +495,7 @@ const Dashboard = () => {
         <div className="upcoming-reservations">
           <div className="section-header">
             <h2>Upcoming Reservations</h2>
-            <Link to="/reservations" className="view-all-link">View All â†’</Link>
+            <Link to="/reservations" className="view-all-link">View All →</Link>
           </div>
           
           {upcomingReservations.length === 0 ? (

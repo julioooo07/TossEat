@@ -1,15 +1,16 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import './Orders.css'; 
 
 const Orders = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const { user, api } = useAuth();
+  const navigate = useNavigate();
 
-  const formatPrice = (price) => {
-    return `₱${price.toFixed(2)}`;
-  };
+  const formatPrice = (price) => `₱${Number(price || 0).toFixed(2)}`;
+  const orderTotal = (order) => order.items?.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0), 0) ?? Number(order.total || 0);
 
   useEffect(() => {
     fetchOrders();
@@ -71,7 +72,7 @@ const fetchOrders = async () => {
               
               <div className="order-details">
                 <p><strong>Date:</strong> {new Date(order.createdAt).toLocaleDateString()}</p>
-                <p><strong>Total:</strong> {formatPrice(order.total)}</p>
+                <p><strong>Total:</strong> {formatPrice(orderTotal(order))}</p>
                 <p><strong>Payment Method:</strong> {order.paymentMethod}</p>
                 <p><strong>Order type:</strong> {{ dine_in: 'Dine in', pickup: 'Pick up for to go', delivery: 'Delivery' }[order.fulfillmentType || 'delivery']}</p>
               </div>
@@ -81,10 +82,11 @@ const fetchOrders = async () => {
                 {order.items.map((item, index) => (
                   <div key={index} className="order-item">
                     <span>{item.name}</span>
-                    <span>Qty: {item.quantity}</span>
-                    <span>{formatPrice(item.price)}</span>
+                    <span>Qty: {item.quantity} × {formatPrice(item.price)}</span>
+                    <strong>{formatPrice(Number(item.price || 0) * Number(item.quantity || 0))}</strong>
                   </div>
                 ))}
+              <div className="order-actions"><button type="button" className="btn btn-primary" onClick={() => navigate('/receipt', { state: { order: { ...order, total: orderTotal(order) }, paymentDetails: order.paymentDetails || {} } })}>View Receipt</button></div>
               </div>
             </div>
           ))}

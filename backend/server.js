@@ -480,8 +480,9 @@ app.post('/api/orders', authenticate, async (req, res) => {
       });
     }
     const items = await Promise.all(cart.items.map(item => normalizeCartItem({ ...item.toObject(), quantity: item.quantity })));
-    const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const total = Math.round(subtotal * 1.12 * 100) / 100;
+    // Menu prices are the final customer prices. Do not add an undeclared VAT
+    // surcharge here; calculate the total from the normalized cart items.
+    const total = Math.round(items.reduce((sum, item) => sum + item.price * item.quantity, 0) * 100) / 100;
 
     const order = new Order({ 
       user: req.user._id, 
@@ -526,7 +527,7 @@ app.get('/api/orders', authenticate, async (req, res) => {
   try {
     const orders = await Order.find({ user: req.user._id })
       .sort({ createdAt: -1 })
-      .select('items total status createdAt paymentMethod fulfillmentType');
+      .select('items total status createdAt paymentMethod fulfillmentType paymentDetails');
     res.json({ success: true, orders });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Failed to fetch orders' });

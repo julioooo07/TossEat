@@ -32,3 +32,5 @@
   .order-header { flex-direction: column; gap: 1rem; text-align: center; }
   .orders-list .order-item { flex-direction: column; gap: .5rem; text-align: center; }
 }
+.order-actions { display: flex; justify-content: flex-end; margin-top: 1rem; }
+.order-actions .btn { width: auto; }
