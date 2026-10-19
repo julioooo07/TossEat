@@ -4,6 +4,14 @@ import { useAuth } from '../context/AuthContext';
 import './Admin.css';
 
 const Admin = () => {
+  const orderStatuses = [
+    { value: 'pending', label: 'Pending' },
+    { value: 'confirmed', label: 'Confirmed' },
+    { value: 'preparing', label: 'Preparing' },
+    { value: 'ready', label: 'Ready' },
+    { value: 'completed', label: 'Completed' },
+    { value: 'cancelled', label: 'Cancelled' }
+  ];
   const location = useLocation();
   const [activeTab, setActiveTab] = useState(() => new URLSearchParams(window.location.search).get('tab') === 'menu' ? 'menu' : 'orders');
   const [orders, setOrders] = useState([]);
@@ -466,19 +474,20 @@ const Admin = () => {
                     </div>
                     
                     <div className="card-footer">
-                      <select 
-                        value={order.status} 
-                        onChange={(e) => updateOrderStatus(order._id, e.target.value)}
-                        className="status-select"
-                        disabled={loading}
-                      >
-                        <option value="pending">Pending</option>
-                        <option value="confirmed">Confirmed</option>
-                        <option value="preparing">Preparing</option>
-                        <option value="ready">Ready</option>
-                        <option value="completed">Completed</option>
-                        <option value="cancelled">Cancelled</option>
-                      </select>
+                      <div className="order-status-buttons" role="group" aria-label={`Update status for order ${order._id.slice(-6).toUpperCase()}`}>
+                        {orderStatuses.map(status => (
+                          <button
+                            type="button"
+                            key={status.value}
+                            className={`order-status-button status-${status.value} ${order.status === status.value ? 'is-active' : ''}`}
+                            aria-pressed={order.status === status.value}
+                            disabled={loading || order.status === status.value}
+                            onClick={() => updateOrderStatus(order._id, status.value)}
+                          >
+                            {status.label}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 ))}
